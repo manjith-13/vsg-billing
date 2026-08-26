@@ -105,7 +105,7 @@
         <button onclick="setDocumentType('INVOICE'); switchTab('invoice');" id="btnNavInvoice" class="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md transition">Create Document</button>
         <button onclick="switchTab('customers')" id="btnNavCustomers" class="px-4 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white shadow-md transition">Customers</button>
         <button onclick="switchTab('history')" id="btnNavHistory" class="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md transition">History</button>
-        <button onclick="switchTab('payment')" id="btnNavPayment" class="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-md transition">Payment</button>
+        <button onclick="switchTab('payment')" id="btnNavPayment" class="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-md transition">Payment Ledger</button>
         <button onclick="switchTab('profile')" id="btnNavProfile" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition">Profile & Backup</button>
         <button onclick="handleLogout()" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white ml-2 shadow-md transition">Logout</button>
       </div>
@@ -355,7 +355,7 @@
         </div>
       </section>
 
-      <!-- TAB 3: CUSTOMER MASTER (WITH EDIT & UPDATE) -->
+      <!-- TAB 3: CUSTOMER MASTER -->
       <section id="tabCustomers" class="hidden space-y-6 no-print">
         <div class="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 p-6 max-w-6xl mx-auto">
           <div class="flex justify-between items-center pb-4 border-b border-slate-100 mb-6">
@@ -465,52 +465,130 @@
         </div>
       </section>
 
-      <!-- TAB 5: DEDICATED PAYMENT & AUDIT LEDGER -->
-      <section id="tabPayment" class="hidden space-y-6 no-print">
-        <div class="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 p-6 max-w-6xl mx-auto">
-          <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 mb-6 gap-4">
+      <!-- TAB 5: DEDICATED PAYMENT & TALLY RECONCILIATION LEDGER (CLEAN RUNNING BALANCE) -->
+      <section id="tabPayment" class="space-y-6 no-print">
+        <div class="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 p-6 max-w-6xl mx-auto space-y-6">
+          
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 gap-4">
             <div>
-              <h2 class="text-base font-extrabold text-slate-800 tracking-tight">Payment & Audit Ledger</h2>
-              <p class="text-xs text-slate-500">Track client payments received in bank vs. pending dues for GST auditing</p>
+              <h2 class="text-base font-extrabold text-slate-800 tracking-tight">Payment & Tally Statement Ledger</h2>
+              <p class="text-xs text-slate-500">Record payments to reduce total balance. Filter by individual customer to print/download official statements.</p>
             </div>
-            <div class="flex gap-2 flex-wrap">
-              <button onclick="filterPayment('ALL')" class="px-3 py-1 text-xs font-bold rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition">All Invoices</button>
-              <button onclick="filterPayment('PAID')" class="px-3 py-1 text-xs font-bold rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition">✓ Paid Invoices</button>
-              <button onclick="filterPayment('PENDING')" class="px-3 py-1 text-xs font-bold rounded-md bg-amber-50 hover:bg-amber-100 text-amber-800 transition">⏳ Pending Dues</button>
+            
+            <div class="flex items-center gap-3 flex-wrap">
+              <!-- Customer Filter -->
+              <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                <span class="text-xs font-bold text-slate-600 pl-1">Customer:</span>
+                <select id="paymentCustFilter" onchange="onPaymentFilterChange()" class="px-3 py-1 text-xs border rounded-lg bg-white font-bold text-slate-900 outline-none max-w-[260px]">
+                  <option value="ALL">All Customers</option>
+                </select>
+              </div>
+
+              <!-- Print / Download Statement Button -->
+              <button onclick="printPaymentLedgerStatement()" class="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm flex items-center gap-1.5">
+                <span>🖨️</span> Print / PDF Statement
+              </button>
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-              <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Invoiced (Billed)</p>
+          <!-- Dynamic Summary Cards (Totals automatically recalculated) -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500" id="statLabelTotal">Total Billed (All Customers)</p>
               <p id="auditTotalBilled" class="text-xl font-black font-mono text-slate-900 mt-1">₹0.00</p>
             </div>
-            <div class="p-4 bg-emerald-50/80 border border-emerald-200 rounded-lg">
-              <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Total Received (Paid)</p>
+            <div class="p-4 bg-emerald-50/80 border border-emerald-200 rounded-xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800" id="statLabelPaid">Total Received (All Customers)</p>
               <p id="auditTotalPaid" class="text-xl font-black font-mono text-emerald-700 mt-1">₹0.00</p>
             </div>
-            <div class="p-4 bg-amber-50/80 border border-amber-200 rounded-lg">
-              <p class="text-[11px] font-bold uppercase tracking-wider text-amber-800">Total Balance (Pending)</p>
+            <div class="p-4 bg-amber-50/80 border border-amber-200 rounded-xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-amber-800" id="statLabelBalance">Total Balance (All Customers)</p>
               <p id="auditTotalPending" class="text-xl font-black font-mono text-amber-700 mt-1">₹0.00</p>
             </div>
           </div>
 
-          <div class="overflow-x-auto border rounded-lg">
-            <table class="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr class="bg-slate-100 text-slate-700 font-bold border-b">
-                  <th class="py-2.5 px-3 w-12 text-center">SL.No</th>
-                  <th class="py-2.5 px-3">Invoice #</th>
-                  <th class="py-2.5 px-3">Date</th>
-                  <th class="py-2.5 px-3">Customer</th>
-                  <th class="py-2.5 px-3">GSTIN</th>
-                  <th class="py-2.5 px-3 text-right">Invoice Amount (₹)</th>
-                  <th class="py-2.5 px-3 text-center">Payment Status</th>
-                </tr>
-              </thead>
-              <tbody id="paymentTableBody" class="divide-y divide-slate-100"></tbody>
-            </table>
+          <!-- PAYMENT RECORDING BOX (Shown ONLY when viewing an Individual Customer) -->
+          <div id="paymentRecordBox" class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 rounded-xl hidden">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-xs font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                <span>💳</span> Record New Payment for <span id="payEntryCustomerNameLabel" class="underline ml-1"></span>
+              </h3>
+            </div>
+            <form onsubmit="handleRecordPayment(event)" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Payment Date (DD-MM-YYYY)</label>
+                <input type="date" id="payEntryDate" required class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-medium text-slate-800">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Amount Received (₹)</label>
+                <input type="number" step="0.01" id="payEntryAmount" placeholder="e.g. 50000" required class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-mono font-bold text-emerald-700">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Payment Mode</label>
+                <select id="payEntryMode" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-semibold text-slate-800">
+                  <option value="Cash">Cash</option>
+                  <option value="RTGS">RTGS</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="UPI">UPI</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Remarks / Note</label>
+                <div class="flex gap-2">
+                  <input type="text" id="payEntryRef" placeholder="Txn / Chq / Ref (Optional)" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none text-slate-800">
+                  <button type="submit" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition shadow-sm whitespace-nowrap">
+                    + Save
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
+
+          <!-- ALL CUSTOMERS SUMMARY VIEW (When "All Customers" is selected) -->
+          <div id="allCustomersSummaryBox" class="space-y-3">
+            <h3 class="text-xs font-black uppercase tracking-wider text-slate-700">Company-Wide Customer Balance Summary</h3>
+            <div class="overflow-x-auto border rounded-xl shadow-sm">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                    <th class="py-3 px-3 w-12 text-center">SL</th>
+                    <th class="py-3 px-4">Customer / Company Name</th>
+                    <th class="py-3 px-3 text-right">Total Billed (₹)</th>
+                    <th class="py-3 px-3 text-right text-emerald-700">Total Received (₹)</th>
+                    <th class="py-3 px-3 text-right text-amber-700">Balance Due (₹)</th>
+                    <th class="py-3 px-3 text-center">Quick Action</th>
+                  </tr>
+                </thead>
+                <tbody id="allCustomersTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- INDIVIDUAL CUSTOMER DETAILED STATEMENT VIEW (CLEAN - NO TYPE COLUMN, INVOICE # HEADER, DD-MM-YYYY) -->
+          <div id="individualStatementBox" class="space-y-3 hidden">
+            <div class="flex justify-between items-center">
+              <h3 id="individualStatementHeading" class="text-xs font-black uppercase tracking-wider text-slate-800"></h3>
+              <span class="text-xs text-slate-500 italic">Chronological Statement of Invoices & Payments</span>
+            </div>
+            <div class="overflow-x-auto border rounded-xl shadow-sm">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                    <th class="py-3 px-3 w-12 text-center">SL</th>
+                    <th class="py-3 px-3 w-28">Date</th>
+                    <th class="py-3 px-3">Invoice #</th>
+                    <th class="py-3 px-4">Payment Mode / Remarks</th>
+                    <th class="py-3 px-3 text-right text-slate-900">Billed Amount</th>
+                    <th class="py-3 px-3 text-right text-emerald-700">Paid Amount</th>
+                    <th class="py-3 px-3 text-right font-black text-blue-950">Running Balance (₹)</th>
+                    <th class="py-3 px-3 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="individualStatementTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -520,7 +598,6 @@
   <!-- 1. PRINTABLE EXACT ORIGINAL TAX INVOICE FORMAT -->
   <div id="printableInvoiceWrapper" class="bg-white p-2 text-black font-sans text-xs hidden">
     <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto;">
-      
       <div class="p-2 border-b-2 border-black flex items-center justify-between">
         <div class="w-20 h-16 flex items-center justify-center">
           <img id="printLogoLeft" src="" class="max-h-16 max-w-full object-contain hidden" alt="Logo">
@@ -669,7 +746,6 @@
   <!-- 2. EXACT ORIGINAL PRICE QUOTATION FORMAT -->
   <div id="printableQuotationWrapper" class="bg-white p-4 text-black font-sans text-xs hidden">
     <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto; padding: 16px;">
-      
       <div class="flex items-center justify-between border-b-2 border-black pb-3">
         <div class="w-20 flex items-center justify-center">
           <img id="quotePrintLogoLeft" src="" class="max-h-16 max-w-full object-contain hidden" alt="Logo">
@@ -754,6 +830,64 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- 3. PRINTABLE OFFICIAL PAYMENT & TALLY STATEMENT FORMAT (CLEANED - NO DEBIT/CREDIT) -->
+  <div id="printablePaymentStatementWrapper" class="bg-white p-4 text-black font-sans text-xs hidden">
+    <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto; padding: 16px;">
+      
+      <div class="flex items-center justify-between border-b-2 border-black pb-3">
+        <div class="w-20 flex items-center justify-center">
+          <img id="stmtPrintLogo" src="" class="max-h-16 max-w-full object-contain hidden" alt="Logo">
+          <div id="stmtLogoPlaceholder" class="w-12 h-12 rounded-full border border-slate-300 flex items-center justify-center text-[10px] text-slate-400 font-bold">LOGO</div>
+        </div>
+        <div class="text-center flex-1 px-2">
+          <h1 id="stmtPrintCompName" class="text-2xl font-black tracking-wider text-black font-brand uppercase">VSG Industries</h1>
+          <p class="text-[11px] font-bold text-slate-800 tracking-tight mt-0.5">ALL KINDS OF AUTOMOBILE LATHE, FABRICATION & WELDING WORKS</p>
+          <p id="stmtPrintContact" class="text-[11px] font-mono font-bold mt-0.5"></p>
+          <p id="stmtPrintAddress" class="text-[11px] font-semibold"></p>
+        </div>
+        <div class="w-20"></div>
+      </div>
+
+      <div class="text-center my-3">
+        <span id="stmtReportTitle" class="border-b-2 border-black font-black text-sm uppercase tracking-widest px-4 pb-0.5">
+          ACCOUNT STATEMENT & PAYMENT RECONCILIATION
+        </span>
+      </div>
+
+      <div class="flex justify-between items-center text-[12px] mb-3 bg-slate-50 p-2 border border-black">
+        <div>
+          <p class="font-bold">Account Name: <span id="stmtCustomerName" class="font-black text-[13px] text-blue-950 uppercase"></span></p>
+        </div>
+        <div class="text-right">
+          <p class="font-bold">Statement Generated: <span id="stmtGeneratedDate" class="font-mono font-bold"></span></p>
+        </div>
+      </div>
+
+      <!-- Printable Table Container -->
+      <table class="w-full text-left border-collapse text-[11px] mb-4" style="border: 1.5px solid #000;">
+        <thead id="stmtTableHead"></thead>
+        <tbody id="stmtTableBody"></tbody>
+      </table>
+
+      <!-- Statement Summary Footer Box -->
+      <div class="grid grid-cols-3 gap-2 border-2 border-black p-2.5 bg-slate-50 text-[12px] font-bold mb-6">
+        <div>Total Billed: <span id="stmtSumBilled" class="font-mono font-black text-slate-900 ml-1">₹0.00</span></div>
+        <div>Total Received: <span id="stmtSumPaid" class="font-mono font-black text-emerald-800 ml-1">₹0.00</span></div>
+        <div>Balance Due: <span id="stmtSumBalance" class="font-mono font-black text-rose-800 ml-1">₹0.00</span></div>
+      </div>
+
+      <div class="flex justify-between items-end pt-8 text-[12px]">
+        <div class="text-center">
+          <p class="border-t border-black pt-1 font-bold">Customer Confirmation</p>
+        </div>
+        <div class="text-center">
+          <p id="stmtPrintSignComp" class="font-black text-xs uppercase mb-8">For VSG INDUSTRIES</p>
+          <p class="border-t border-black pt-1 font-bold">Authorised Signatory</p>
+        </div>
+      </div>
 
     </div>
   </div>
@@ -803,14 +937,25 @@
     let profile = JSON.parse(localStorage.getItem('vsg_company_profile')) || defaultProfile;
     let customers = JSON.parse(localStorage.getItem('vsg_customers')) || [];
     let documents = JSON.parse(localStorage.getItem('vsg_documents')) || [];
+    let payments = JSON.parse(localStorage.getItem('vsg_payments')) || [];
     let userCycles = JSON.parse(localStorage.getItem('vsg_user_cycles')) || [];
     let currentDocType = 'INVOICE';
     let editingDocNumber = null;
-    let editingCustomerId = null; // Tracks active customer edit
+    let editingCustomerId = null;
     let historyFilter = 'ALL';
-    let paymentFilter = 'ALL';
+    let paymentSelectedCustomer = 'ALL';
     let selectedCycle = calculateCycle(new Date());
     let activeInvoiceCycle = calculateCycle(new Date());
+
+    // Helper: Convert YYYY-MM-DD or standard dates to DD-MM-YYYY
+    function formatDisplayDate(dateStr) {
+      if (!dateStr) return '-';
+      const parts = dateStr.split('-');
+      if (parts.length === 3 && parts[0].length === 4) {
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+      return dateStr;
+    }
 
     function calculateCycle(dateInput) {
       const d = new Date(dateInput);
@@ -843,11 +988,13 @@
 
     function initApp() {
       document.getElementById('invDate').valueAsDate = new Date();
+      document.getElementById('payEntryDate').valueAsDate = new Date();
       activeInvoiceCycle = calculateCycle(new Date());
       loadProfileToUI();
       populateCycleDropdown();
       setNextDocumentNumber();
       renderCustomers();
+      populatePaymentCustomerFilter();
       renderHistory();
       renderPaymentLedger();
       resetInvoiceForm();
@@ -873,6 +1020,7 @@
         documents = docs;
         localStorage.setItem('vsg_documents', JSON.stringify(documents));
         renderHistory();
+        populatePaymentCustomerFilter();
         renderPaymentLedger();
         setNextDocumentNumber();
         populateCycleDropdown();
@@ -884,6 +1032,15 @@
         customers = custs;
         localStorage.setItem('vsg_customers', JSON.stringify(customers));
         renderCustomers();
+        populatePaymentCustomerFilter();
+      });
+
+      db.collection("payments").onSnapshot((snapshot) => {
+        const pays = [];
+        snapshot.forEach((d) => pays.push(d.data()));
+        payments = pays;
+        localStorage.setItem('vsg_payments', JSON.stringify(payments));
+        renderPaymentLedger();
       });
 
       db.collection("settings").doc("profile").onSnapshot((docSnap) => {
@@ -1048,6 +1205,7 @@
       }
       if (tab === 'payment') {
         document.getElementById('tabPayment').classList.remove('hidden');
+        populatePaymentCustomerFilter();
         renderPaymentLedger();
       }
     }
@@ -1145,7 +1303,7 @@
       if (direction === -1 && row.previousElementSibling) {
         row.parentNode.insertBefore(row, row.previousElementSibling);
       } else if (direction === 1 && row.nextElementSibling) {
-        row.parentNode.insertBefore(row.nextElementSibling, row);
+        row.parentNode.insertBefore(row, row.nextElementSibling);
       }
       calculateTotals();
     }
@@ -1233,12 +1391,6 @@
         });
       });
 
-      let existingStatus = 'PENDING';
-      if (editingDocNumber) {
-        const found = documents.find(d => d.number === editingDocNumber);
-        if (found && found.status) existingStatus = found.status;
-      }
-
       const docData = {
         type: currentDocType,
         number: docNum,
@@ -1255,7 +1407,6 @@
         cgst: cgst,
         roundOff: roundOff,
         total: grandTotal,
-        status: existingStatus,
         quoteSubject: isQuote ? document.getElementById('quoteSubject').value : '',
         quoteBody: isQuote ? quoteBody : '',
         quoteAdvance: isQuote ? document.getElementById('quoteAdvance').value : '',
@@ -1279,6 +1430,7 @@
       window.print();
       cleanupPrintTemplates();
       renderHistory();
+      populatePaymentCustomerFilter();
       renderPaymentLedger();
       resetInvoiceForm();
     }
@@ -1287,7 +1439,11 @@
       const isQuote = (doc.type || 'INVOICE') === 'QUOTATION';
       const invWrapper = document.getElementById('printableInvoiceWrapper');
       const quoteWrapper = document.getElementById('printableQuotationWrapper');
+      const stmtWrapper = document.getElementById('printablePaymentStatementWrapper');
+      
       document.getElementById('batchPrintArea').classList.add('hidden');
+      stmtWrapper.classList.add('hidden');
+      stmtWrapper.classList.remove('print-visible');
 
       if (isQuote) {
         invWrapper.classList.add('hidden');
@@ -1302,7 +1458,7 @@
         document.getElementById('quotePrintAddress').textContent = `${profile.address1} ${profile.address2}`;
         
         document.getElementById('quotePrintNo').textContent = doc.number;
-        document.getElementById('quotePrintDate').textContent = doc.date.split('-').reverse().join('-');
+        document.getElementById('quotePrintDate').textContent = formatDisplayDate(doc.date);
         document.getElementById('quotePrintCustName').textContent = doc.customer;
         document.getElementById('quotePrintCustAddress').textContent = doc.address || '';
         document.getElementById('quotePrintCustPhone').textContent = doc.phone ? `Ph: ${doc.phone}` : '';
@@ -1354,7 +1510,7 @@
         invWrapper.classList.add('print-visible');
 
         document.getElementById('printInvNo').textContent = doc.number;
-        document.getElementById('printInvDate').textContent = doc.date.split('-').reverse().join('-');
+        document.getElementById('printInvDate').textContent = formatDisplayDate(doc.date);
         document.getElementById('printInvVehicle').textContent = doc.vehicle || '';
         document.getElementById('printCustName').textContent = doc.customer;
         document.getElementById('printCustGSTIN').textContent = doc.gstin || '';
@@ -1415,12 +1571,15 @@
     function cleanupPrintTemplates() {
       const invWrapper = document.getElementById('printableInvoiceWrapper');
       const quoteWrapper = document.getElementById('printableQuotationWrapper');
+      const stmtWrapper = document.getElementById('printablePaymentStatementWrapper');
       const batchArea = document.getElementById('batchPrintArea');
       
       invWrapper.classList.add('hidden');
       invWrapper.classList.remove('print-visible');
       quoteWrapper.classList.add('hidden');
       quoteWrapper.classList.remove('print-visible');
+      stmtWrapper.classList.add('hidden');
+      stmtWrapper.classList.remove('print-visible');
       batchArea.classList.add('hidden');
       batchArea.classList.remove('print-visible');
       batchArea.innerHTML = '';
@@ -1479,11 +1638,12 @@
 
     function downloadBackup() {
       const backupData = {
-        version: '1.0',
+        version: '2.0',
         exportDate: new Date().toISOString(),
         profile: profile,
         customers: customers,
         documents: documents,
+        payments: payments,
         userCycles: userCycles
       };
 
@@ -1509,22 +1669,26 @@
               profile = parsed.profile;
               documents = parsed.documents;
               customers = parsed.customers;
+              payments = parsed.payments || [];
               userCycles = parsed.userCycles || [];
 
               if (isCloudActive) {
                 db.collection("settings").doc("profile").set(profile);
                 customers.forEach(c => db.collection("customers").doc(String(c.id)).set(c));
                 documents.forEach(d => db.collection("documents").doc(d.number).set(d));
+                payments.forEach(p => db.collection("payments").doc(String(p.id)).set(p));
               }
 
               localStorage.setItem('vsg_company_profile', JSON.stringify(profile));
               localStorage.setItem('vsg_documents', JSON.stringify(documents));
               localStorage.setItem('vsg_customers', JSON.stringify(customers));
+              localStorage.setItem('vsg_payments', JSON.stringify(payments));
               localStorage.setItem('vsg_user_cycles', JSON.stringify(userCycles));
 
               loadProfileToUI();
               populateCycleDropdown();
               renderCustomers();
+              populatePaymentCustomerFilter();
               renderHistory();
               renderPaymentLedger();
               setNextDocumentNumber();
@@ -1588,7 +1752,7 @@
           </td>
           <td class="py-2.5 px-3 font-mono font-bold ${isQuote ? 'text-fuchsia-700' : 'text-emerald-700'}">${doc.number}</td>
           <td class="py-2.5 px-3 font-mono text-[11px] text-slate-600 font-semibold">${docCycle}</td>
-          <td class="py-2.5 px-3 text-slate-600">${doc.date}</td>
+          <td class="py-2.5 px-3 text-slate-600">${formatDisplayDate(doc.date)}</td>
           <td class="py-2.5 px-3 font-medium text-slate-800">${doc.customer}</td>
           <td class="py-2.5 px-3 font-mono text-slate-600">${doc.gstin || '-'}</td>
           <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">₹${doc.total.toFixed(2)}</td>
@@ -1603,83 +1767,404 @@
       });
     }
 
-    function filterPayment(type) {
-      paymentFilter = type;
+    // ==========================================
+    // 3. TAB 5: RUNNING BALANCE PAYMENT SYSTEM
+    // ==========================================
+    function populatePaymentCustomerFilter() {
+      const select = document.getElementById('paymentCustFilter');
+      if (!select) return;
+
+      const custSet = new Set();
+      customers.forEach(c => { if (c.name) custSet.add(c.name.trim()); });
+      documents.filter(d => (d.type || 'INVOICE') === 'INVOICE').forEach(d => {
+        if (d.customer) custSet.add(d.customer.trim());
+      });
+
+      const currentVal = paymentSelectedCustomer;
+      const sortedCustomers = Array.from(custSet).sort();
+
+      select.innerHTML = '<option value="ALL">All Customers</option>';
+
+      sortedCustomers.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        if (name === currentVal) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      if (paymentSelectedCustomer !== 'ALL' && !sortedCustomers.includes(paymentSelectedCustomer)) {
+        paymentSelectedCustomer = 'ALL';
+        select.value = 'ALL';
+      }
+    }
+
+    function onPaymentFilterChange() {
+      paymentSelectedCustomer = document.getElementById('paymentCustFilter').value;
       renderPaymentLedger();
     }
 
-    function togglePaymentStatus(num) {
-      const doc = documents.find(d => d.number === num);
-      if (doc) {
-        doc.status = doc.status === 'PAID' ? 'PENDING' : 'PAID';
+    function selectSpecificCustomerInPayment(custName) {
+      paymentSelectedCustomer = custName;
+      document.getElementById('paymentCustFilter').value = custName;
+      renderPaymentLedger();
+    }
+
+    // RECORD DIRECT CUSTOMER PAYMENT (Reduces from total)
+    function handleRecordPayment(e) {
+      e.preventDefault();
+      const customer = paymentSelectedCustomer;
+      const date = document.getElementById('payEntryDate').value;
+      const amount = parseFloat(document.getElementById('payEntryAmount').value) || 0;
+      const mode = document.getElementById('payEntryMode').value;
+      const ref = document.getElementById('payEntryRef').value.trim();
+
+      if (!customer || customer === 'ALL' || amount <= 0) {
+        alert("Please select a specific customer and enter valid amount!");
+        return;
+      }
+
+      const newPayment = {
+        id: Date.now(),
+        customer: customer,
+        date: date,
+        amount: amount,
+        mode: mode,
+        ref: ref
+      };
+
+      if (isCloudActive) {
+        db.collection("payments").doc(String(newPayment.id)).set(newPayment);
+      }
+
+      payments.push(newPayment);
+      localStorage.setItem('vsg_payments', JSON.stringify(payments));
+
+      document.getElementById('payEntryAmount').value = '';
+      document.getElementById('payEntryRef').value = '';
+      renderPaymentLedger();
+    }
+
+    function deletePaymentRecord(id) {
+      if (confirm("Delete this payment record? This will adjust the balance back.")) {
         if (isCloudActive) {
-          db.collection("documents").doc(num).update({ status: doc.status });
+          db.collection("payments").doc(String(id)).delete();
         }
-        localStorage.setItem('vsg_documents', JSON.stringify(documents));
+        payments = payments.filter(p => p.id !== id);
+        localStorage.setItem('vsg_payments', JSON.stringify(payments));
         renderPaymentLedger();
       }
     }
 
     function renderPaymentLedger() {
-      const tbody = document.getElementById('paymentTableBody');
-      tbody.innerHTML = '';
-
-      let totalBilled = 0;
-      let totalPaid = 0;
-      let totalPending = 0;
+      const allBox = document.getElementById('allCustomersSummaryBox');
+      const indBox = document.getElementById('individualStatementBox');
+      const payRecordBox = document.getElementById('paymentRecordBox');
+      const allTbody = document.getElementById('allCustomersTableBody');
+      const indTbody = document.getElementById('individualStatementTableBody');
 
       const invoicesOnly = documents.filter(d => (d.type || 'INVOICE') === 'INVOICE');
 
-      invoicesOnly.forEach(d => {
-        totalBilled += d.total || 0;
-        if (d.status === 'PAID') {
-          totalPaid += d.total || 0;
-        } else {
-          totalPending += d.total || 0;
+      // 1. Calculate Grand Totals across all customers
+      let totalBilledAll = 0;
+      let totalPaidAll = 0;
+
+      invoicesOnly.forEach(d => { totalBilledAll += (d.total || 0); });
+      payments.forEach(p => { totalPaidAll += (p.amount || 0); });
+      let totalBalanceAll = totalBilledAll - totalPaidAll;
+
+      // When "ALL CUSTOMERS" is selected
+      if (paymentSelectedCustomer === 'ALL') {
+        allBox.classList.remove('hidden');
+        indBox.classList.add('hidden');
+        payRecordBox.classList.add('hidden');
+
+        document.getElementById('statLabelTotal').textContent = "Total Billed (All Customers)";
+        document.getElementById('statLabelPaid').textContent = "Total Received (All Customers)";
+        document.getElementById('statLabelBalance').textContent = "Total Balance (All Customers)";
+
+        document.getElementById('auditTotalBilled').textContent = `₹${totalBilledAll.toFixed(2)}`;
+        document.getElementById('auditTotalPaid').textContent = `₹${totalPaidAll.toFixed(2)}`;
+        document.getElementById('auditTotalPending').textContent = `₹${totalBalanceAll.toFixed(2)}`;
+
+        // Aggregate by Customer
+        const customerStats = {};
+        customers.forEach(c => {
+          if (c.name) customerStats[c.name.trim()] = { billed: 0, paid: 0, balance: 0 };
+        });
+
+        invoicesOnly.forEach(d => {
+          const name = (d.customer || '').trim();
+          if (!customerStats[name]) customerStats[name] = { billed: 0, paid: 0, balance: 0 };
+          customerStats[name].billed += (d.total || 0);
+        });
+
+        payments.forEach(p => {
+          const name = (p.customer || '').trim();
+          if (!customerStats[name]) customerStats[name] = { billed: 0, paid: 0, balance: 0 };
+          customerStats[name].paid += (p.amount || 0);
+        });
+
+        allTbody.innerHTML = '';
+        const names = Object.keys(customerStats).sort();
+
+        if (names.length === 0) {
+          allTbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-400 font-medium">No customer billing records available.</td></tr>`;
+          return;
         }
-      });
 
-      document.getElementById('auditTotalBilled').textContent = `₹${totalBilled.toFixed(2)}`;
-      document.getElementById('auditTotalPaid').textContent = `₹${totalPaid.toFixed(2)}`;
-      document.getElementById('auditTotalPending').textContent = `₹${totalPending.toFixed(2)}`;
+        names.forEach((name, idx) => {
+          const stat = customerStats[name];
+          stat.balance = stat.billed - stat.paid;
 
-      let filtered = [...invoicesOnly];
-      if (paymentFilter === 'PAID') {
-        filtered = filtered.filter(d => d.status === 'PAID');
-      } else if (paymentFilter === 'PENDING') {
-        filtered = filtered.filter(d => (d.status || 'PENDING') === 'PENDING');
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition border-b';
+          tr.innerHTML = `
+            <td class="py-3 px-3 text-center text-slate-400 font-bold">${idx + 1}</td>
+            <td class="py-3 px-4 font-bold text-slate-900">${name}</td>
+            <td class="py-3 px-3 text-right font-mono font-bold text-slate-900">₹${stat.billed.toFixed(2)}</td>
+            <td class="py-3 px-3 text-right font-mono font-bold text-emerald-700">₹${stat.paid.toFixed(2)}</td>
+            <td class="py-3 px-3 text-right font-mono font-black ${stat.balance > 0 ? 'text-amber-700' : 'text-slate-700'}">₹${stat.balance.toFixed(2)}</td>
+            <td class="py-3 px-3 text-center">
+              <button onclick="selectSpecificCustomerInPayment('${name}')" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-md font-bold text-xs transition">
+                View Ledger &rarr;
+              </button>
+            </td>
+          `;
+          allTbody.appendChild(tr);
+        });
+
+      } else {
+        // When INDIVIDUAL CUSTOMER is selected
+        allBox.classList.add('hidden');
+        indBox.classList.remove('hidden');
+        payRecordBox.classList.remove('hidden');
+
+        document.getElementById('payEntryCustomerNameLabel').textContent = paymentSelectedCustomer;
+        document.getElementById('individualStatementHeading').textContent = `Customer Statement: ${paymentSelectedCustomer}`;
+
+        const custInvoices = invoicesOnly.filter(d => (d.customer || '').trim() === paymentSelectedCustomer);
+        const custPayments = payments.filter(p => (p.customer || '').trim() === paymentSelectedCustomer);
+
+        let custTotalBilled = 0;
+        let custTotalPaid = 0;
+
+        custInvoices.forEach(d => { custTotalBilled += (d.total || 0); });
+        custPayments.forEach(p => { custTotalPaid += (p.amount || 0); });
+        let custBalance = custTotalBilled - custTotalPaid;
+
+        document.getElementById('statLabelTotal').textContent = `Total Billed (${paymentSelectedCustomer})`;
+        document.getElementById('statLabelPaid').textContent = `Total Received (${paymentSelectedCustomer})`;
+        document.getElementById('statLabelBalance').textContent = `Current Balance (${paymentSelectedCustomer})`;
+
+        document.getElementById('auditTotalBilled').textContent = `₹${custTotalBilled.toFixed(2)}`;
+        document.getElementById('auditTotalPaid').textContent = `₹${custTotalPaid.toFixed(2)}`;
+        document.getElementById('auditTotalPending').textContent = `₹${custBalance.toFixed(2)}`;
+
+        // Build Chronological Transactions List (Invoices + Payments)
+        const timeline = [];
+
+        custInvoices.forEach(inv => {
+          timeline.push({
+            date: inv.date,
+            type: 'INVOICE',
+            invNum: inv.number,
+            desc: `Tax Invoice #${inv.number}`,
+            billed: inv.total || 0,
+            paid: 0,
+            rawItem: inv
+          });
+        });
+
+        custPayments.forEach(pay => {
+          timeline.push({
+            date: pay.date,
+            type: 'PAYMENT',
+            invNum: '-',
+            desc: `Payment Received [${pay.mode}] ${pay.ref ? '- ' + pay.ref : ''}`,
+            billed: 0,
+            paid: pay.amount || 0,
+            rawItem: pay
+          });
+        });
+
+        // Sort timeline by date
+        timeline.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        indTbody.innerHTML = '';
+        if (timeline.length === 0) {
+          indTbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400 font-medium">No transactions recorded for ${paymentSelectedCustomer}.</td></tr>`;
+          return;
+        }
+
+        let runningBal = 0;
+        timeline.forEach((item, idx) => {
+          runningBal += (item.billed - item.paid);
+          const isInv = item.type === 'INVOICE';
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition border-b';
+          tr.innerHTML = `
+            <td class="py-3 px-3 text-center text-slate-400 font-bold">${idx + 1}</td>
+            <td class="py-3 px-3 font-mono font-medium text-slate-700">${formatDisplayDate(item.date)}</td>
+            <td class="py-3 px-3 font-mono font-bold ${isInv ? 'text-blue-700' : 'text-slate-400'}">${item.invNum}</td>
+            <td class="py-3 px-4 text-slate-700 font-medium">${item.desc}</td>
+            <td class="py-3 px-3 text-right font-mono font-bold text-slate-900">${item.billed > 0 ? '₹' + item.billed.toFixed(2) : '-'}</td>
+            <td class="py-3 px-3 text-right font-mono font-bold text-emerald-700">${item.paid > 0 ? '₹' + item.paid.toFixed(2) : '-'}</td>
+            <td class="py-3 px-3 text-right font-mono font-black text-blue-950">₹${runningBal.toFixed(2)}</td>
+            <td class="py-3 px-3 text-center">
+              ${isInv ? `<button onclick="directPrintDocument('${item.rawItem.number}')" class="text-blue-600 font-bold hover:underline">View Bill</button>` : `<button onclick="deletePaymentRecord(${item.rawItem.id})" class="text-rose-600 font-bold hover:underline">Delete</button>`}
+            </td>
+          `;
+          indTbody.appendChild(tr);
+        });
       }
+    }
 
-      filtered.sort((a, b) => {
-        const numA = parseInt(a.number, 10) || 0;
-        const numB = parseInt(b.number, 10) || 0;
-        return numA - numB;
-      });
+    // ==========================================
+    // 4. PRINT / PDF OFFICIAL STATEMENT
+    // ==========================================
+    function printPaymentLedgerStatement() {
+      const stmtWrapper = document.getElementById('printablePaymentStatementWrapper');
+      const invWrapper = document.getElementById('printableInvoiceWrapper');
+      const quoteWrapper = document.getElementById('printableQuotationWrapper');
+      const batchArea = document.getElementById('batchPrintArea');
 
-      if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400 font-medium">No invoice payment records found.</td></tr>`;
-        return;
-      }
+      invWrapper.classList.add('hidden');
+      quoteWrapper.classList.add('hidden');
+      batchArea.classList.add('hidden');
 
-      filtered.forEach((doc, index) => {
-        const isPaid = doc.status === 'PAID';
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-slate-50 transition border-b';
-        tr.innerHTML = `
-          <td class="py-2.5 px-3 text-center text-slate-400 font-bold">${index + 1}</td>
-          <td class="py-2.5 px-3 font-mono font-bold text-blue-700">${doc.number}</td>
-          <td class="py-2.5 px-3 text-slate-600">${doc.date}</td>
-          <td class="py-2.5 px-3 font-medium text-slate-800">${doc.customer}</td>
-          <td class="py-2.5 px-3 font-mono text-slate-600">${doc.gstin || '-'}</td>
-          <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">₹${doc.total.toFixed(2)}</td>
-          <td class="py-2.5 px-3 text-center">
-            <button onclick="togglePaymentStatus('${doc.number}')" title="Click to toggle status" class="px-3.5 py-1 rounded-full text-[11px] font-black transition cursor-pointer shadow-sm ${isPaid ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 hover:bg-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200'}">
-              ${isPaid ? '✓ PAID' : '⏳ PENDING'}
-            </button>
-          </td>
+      stmtWrapper.classList.remove('hidden');
+      stmtWrapper.classList.add('print-visible');
+
+      document.getElementById('stmtPrintCompName').textContent = profile.name;
+      document.getElementById('stmtPrintContact').textContent = `Ph: ${profile.contact} | GSTIN: ${profile.gstin}`;
+      document.getElementById('stmtPrintAddress').textContent = `${profile.address1} ${profile.address2}`;
+      document.getElementById('stmtGeneratedDate').textContent = new Date().toLocaleDateString('en-GB');
+      document.getElementById('stmtPrintSignComp').textContent = `For ${profile.name.toUpperCase()}`;
+
+      const tHead = document.getElementById('stmtTableHead');
+      const tBody = document.getElementById('stmtTableBody');
+      tHead.innerHTML = '';
+      tBody.innerHTML = '';
+
+      const invoicesOnly = documents.filter(d => (d.type || 'INVOICE') === 'INVOICE');
+
+      // MODE A: ALL CUSTOMERS PRINT
+      if (paymentSelectedCustomer === 'ALL') {
+        document.getElementById('stmtReportTitle').textContent = "ALL CUSTOMERS OUTSTANDING & PAYMENT AUDIT SUMMARY";
+        document.getElementById('stmtCustomerName').textContent = "ALL ACTIVE CLIENTS / WORKSHOP CONSOLIDATED";
+
+        tHead.innerHTML = `
+          <tr class="bg-slate-100 text-center font-bold border-b border-black">
+            <th class="py-2 px-2 border-r border-black w-10">SL</th>
+            <th class="py-2 px-4 border-r border-black text-left">Customer / Company Name</th>
+            <th class="py-2 px-3 border-r border-black text-right">Total Billed (₹)</th>
+            <th class="py-2 px-3 border-r border-black text-right">Total Received (₹)</th>
+            <th class="py-2 px-3 text-right">Balance Outstanding (₹)</th>
+          </tr>
         `;
-        tbody.appendChild(tr);
-      });
+
+        const customerStats = {};
+        invoicesOnly.forEach(d => {
+          const name = (d.customer || '').trim();
+          if (!customerStats[name]) customerStats[name] = { billed: 0, paid: 0, balance: 0 };
+          customerStats[name].billed += (d.total || 0);
+        });
+
+        payments.forEach(p => {
+          const name = (p.customer || '').trim();
+          if (!customerStats[name]) customerStats[name] = { billed: 0, paid: 0, balance: 0 };
+          customerStats[name].paid += (p.amount || 0);
+        });
+
+        let totalBilled = 0;
+        let totalPaid = 0;
+        let idx = 1;
+
+        Object.keys(customerStats).sort().forEach(name => {
+          const stat = customerStats[name];
+          stat.balance = stat.billed - stat.paid;
+          totalBilled += stat.billed;
+          totalPaid += stat.paid;
+
+          const tr = document.createElement('tr');
+          tr.className = 'border-b border-black text-center';
+          tr.innerHTML = `
+            <td class="py-1.5 px-2 border-r border-black">${idx++}</td>
+            <td class="py-1.5 px-4 border-r border-black text-left font-bold">${name}</td>
+            <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">${stat.billed.toFixed(2)}</td>
+            <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">${stat.paid.toFixed(2)}</td>
+            <td class="py-1.5 px-3 text-right font-mono font-black">${stat.balance.toFixed(2)}</td>
+          `;
+          tBody.appendChild(tr);
+        });
+
+        document.getElementById('stmtSumBilled').textContent = `₹${totalBilled.toFixed(2)}`;
+        document.getElementById('stmtSumPaid').textContent = `₹${totalPaid.toFixed(2)}`;
+        document.getElementById('stmtSumBalance').textContent = `₹${(totalBilled - totalPaid).toFixed(2)}`;
+
+      } else {
+        // MODE B: INDIVIDUAL CUSTOMER PRINT (Cleaned Statement: Billed, Paid, Balance Due)
+        document.getElementById('stmtReportTitle').textContent = "CUSTOMER ACCOUNT STATEMENT & RUNNING BALANCE";
+        document.getElementById('stmtCustomerName').textContent = paymentSelectedCustomer;
+
+        tHead.innerHTML = `
+          <tr class="bg-slate-100 text-center font-bold border-b border-black">
+            <th class="py-2 px-2 border-r border-black w-10">SL</th>
+            <th class="py-2 px-2 border-r border-black w-24">Date</th>
+            <th class="py-2 px-2 border-r border-black w-20">Invoice #</th>
+            <th class="py-2 px-3 border-r border-black text-left">Payment Mode / Remarks</th>
+            <th class="py-2 px-3 border-r border-black text-right">Billed</th>
+            <th class="py-2 px-3 border-r border-black text-right">Paid</th>
+            <th class="py-2 px-3 text-right">Balance Due (₹)</th>
+          </tr>
+        `;
+
+        const custInvoices = invoicesOnly.filter(d => (d.customer || '').trim() === paymentSelectedCustomer);
+        const custPayments = payments.filter(p => (p.customer || '').trim() === paymentSelectedCustomer);
+
+        const timeline = [];
+        custInvoices.forEach(inv => {
+          timeline.push({ date: inv.date, invNum: inv.number, desc: `Tax Invoice #${inv.number}`, billed: inv.total || 0, paid: 0 });
+        });
+        custPayments.forEach(pay => {
+          timeline.push({ date: pay.date, invNum: '-', desc: `Payment [${pay.mode}] ${pay.ref ? pay.ref : ''}`, billed: 0, paid: pay.amount || 0 });
+        });
+
+        timeline.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        let runningBal = 0;
+        let totalBilled = 0;
+        let totalPaid = 0;
+        let idx = 1;
+
+        timeline.forEach(item => {
+          runningBal += (item.billed - item.paid);
+          totalBilled += item.billed;
+          totalPaid += item.paid;
+
+          const tr = document.createElement('tr');
+          tr.className = 'border-b border-black text-center';
+          tr.innerHTML = `
+            <td class="py-1.5 px-2 border-r border-black">${idx++}</td>
+            <td class="py-1.5 px-2 border-r border-black font-mono">${formatDisplayDate(item.date)}</td>
+            <td class="py-1.5 px-2 border-r border-black font-mono font-bold">${item.invNum}</td>
+            <td class="py-1.5 px-3 border-r border-black text-left font-semibold">${item.desc}</td>
+            <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">${item.billed > 0 ? item.billed.toFixed(2) : '-'}</td>
+            <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">${item.paid > 0 ? item.paid.toFixed(2) : '-'}</td>
+            <td class="py-1.5 px-3 text-right font-mono font-black">${runningBal.toFixed(2)}</td>
+          `;
+          tBody.appendChild(tr);
+        });
+
+        document.getElementById('stmtSumBilled').textContent = `₹${totalBilled.toFixed(2)}`;
+        document.getElementById('stmtSumPaid').textContent = `₹${totalPaid.toFixed(2)}`;
+        document.getElementById('stmtSumBalance').textContent = `₹${(totalBilled - totalPaid).toFixed(2)}`;
+      }
+
+      window.print();
+      cleanupPrintTemplates();
     }
 
     function viewDocument(num) {
@@ -1736,6 +2221,7 @@
         documents = documents.filter(d => d.number !== num);
         localStorage.setItem('vsg_documents', JSON.stringify(documents));
         renderHistory();
+        populatePaymentCustomerFilter();
         renderPaymentLedger();
         setNextDocumentNumber();
       }
@@ -1804,8 +2290,10 @@
       const logoPreview = document.getElementById('profileLogoPreview');
       const printLogo = document.getElementById('printLogoLeft');
       const quoteLogo = document.getElementById('quotePrintLogoLeft');
+      const stmtLogo = document.getElementById('stmtPrintLogo');
       const logoPlaceholder = document.getElementById('logoLeftPlaceholder');
       const quoteLogoPlaceholder = document.getElementById('quoteLogoLeftPlaceholder');
+      const stmtLogoPlaceholder = document.getElementById('stmtLogoPlaceholder');
       const navLogoImg = document.getElementById('navLogoImg');
       const navLogoPlaceholder = document.getElementById('navLogoPlaceholder');
 
@@ -1813,10 +2301,13 @@
         logoPreview.innerHTML = `<img src="${profile.logo}" class="max-h-full max-w-full object-contain">`;
         printLogo.src = profile.logo;
         quoteLogo.src = profile.logo;
+        stmtLogo.src = profile.logo;
         printLogo.classList.remove('hidden');
         quoteLogo.classList.remove('hidden');
+        stmtLogo.classList.remove('hidden');
         if (logoPlaceholder) logoPlaceholder.classList.add('hidden');
         if (quoteLogoPlaceholder) quoteLogoPlaceholder.classList.add('hidden');
+        if (stmtLogoPlaceholder) stmtLogoPlaceholder.classList.add('hidden');
 
         if (navLogoImg && navLogoPlaceholder) {
           navLogoImg.src = profile.logo;
@@ -1827,10 +2318,13 @@
         logoPreview.innerHTML = `<span class="text-[10px] text-slate-400">No Logo</span>`;
         printLogo.src = '';
         quoteLogo.src = '';
+        stmtLogo.src = '';
         printLogo.classList.add('hidden');
         quoteLogo.classList.add('hidden');
+        stmtLogo.classList.add('hidden');
         if (logoPlaceholder) logoPlaceholder.classList.remove('hidden');
         if (quoteLogoPlaceholder) quoteLogoPlaceholder.classList.remove('hidden');
+        if (stmtLogoPlaceholder) stmtLogoPlaceholder.classList.remove('hidden');
 
         if (navLogoImg && navLogoPlaceholder) {
           navLogoImg.src = '';
@@ -1886,7 +2380,7 @@
     }
 
     // ==========================================
-    // 3. CUSTOMER MANAGEMENT (ADD, EDIT, DELETE)
+    // 5. CUSTOMER MANAGEMENT (ADD, EDIT, DELETE)
     // ==========================================
     function saveCustomer(e) {
       e.preventDefault();
@@ -1913,6 +2407,7 @@
       localStorage.setItem('vsg_customers', JSON.stringify(customers));
       cancelCustomerEdit();
       renderCustomers();
+      populatePaymentCustomerFilter();
     }
 
     function editCustomer(id) {
@@ -1954,6 +2449,7 @@
         localStorage.setItem('vsg_customers', JSON.stringify(customers));
         if (editingCustomerId === id) cancelCustomerEdit();
         renderCustomers();
+        populatePaymentCustomerFilter();
       }
     }
 
