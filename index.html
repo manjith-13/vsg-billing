@@ -142,8 +142,9 @@
                 </button>
               </div>
 
+              <!-- EDITABLE INVOICE NUMBER -->
               <span id="docNumberLabel" class="text-xs font-bold text-slate-600">Invoice No:</span>
-              <input type="text" id="invNumber" class="w-24 px-2.5 py-1 text-xs border rounded-md bg-slate-50 font-mono font-extrabold text-blue-700" readonly>
+              <input type="text" id="invNumber" class="w-28 px-2.5 py-1 text-xs border border-blue-300 rounded-md bg-white font-mono font-black text-blue-700 focus:ring-2 focus:ring-blue-600 outline-none shadow-inner" placeholder="001">
               <input type="date" id="invDate" onchange="handleDateChange(this.value)" class="px-2.5 py-1 text-xs border rounded-md text-slate-700 font-medium">
               <input type="text" id="invVehicle" placeholder="Vehicle / Ref No." class="w-32 px-2.5 py-1 text-xs border rounded-md text-slate-700">
             </div>
@@ -418,15 +419,15 @@
 
             <div class="flex items-center gap-2 flex-wrap">
               <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-                <span class="text-xs font-bold text-slate-600 pl-1">Invoice Cycle:</span>
+                <span class="text-xs font-bold text-slate-600 pl-1">Cycle:</span>
                 <select id="historyCycleSelect" onchange="onCycleChange(this.value)" class="px-2 py-1 text-xs border rounded-lg bg-white font-mono font-bold text-blue-700 outline-none"></select>
               </div>
 
               <button onclick="promptAddNewCycle()" title="Start a new billing cycle" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1">
-                <span>➕</span> Add New Cycle
+                <span>➕</span> Add Cycle
               </button>
 
-              <button onclick="deleteSelectedHistoryCycle()" title="Delete Selected Cycle" class="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1">
+              <button onclick="deleteSelectedHistoryCycle()" title="Delete Selected Cycle (Requires Password)" class="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1">
                 <span>🗑️</span> Delete Cycle
               </button>
 
@@ -465,22 +466,30 @@
         </div>
       </section>
 
-      <!-- TAB 5: DEDICATED PAYMENT & TALLY RECONCILIATION LEDGER (CLEAN RUNNING BALANCE) -->
+      <!-- TAB 5: DEDICATED PAYMENT & TALLY RECONCILIATION LEDGER -->
       <section id="tabPayment" class="space-y-6 no-print">
         <div class="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 p-6 max-w-6xl mx-auto space-y-6">
           
           <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 gap-4">
             <div>
               <h2 class="text-base font-extrabold text-slate-800 tracking-tight">Payment & Tally Statement Ledger</h2>
-              <p class="text-xs text-slate-500">Record payments to reduce total balance. Filter by individual customer to print/download official statements.</p>
+              <p class="text-xs text-slate-500">Filter by customer or cycle year. Record payments to reduce total balance automatically.</p>
             </div>
             
             <div class="flex items-center gap-3 flex-wrap">
               <!-- Customer Filter -->
               <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
                 <span class="text-xs font-bold text-slate-600 pl-1">Customer:</span>
-                <select id="paymentCustFilter" onchange="onPaymentFilterChange()" class="px-3 py-1 text-xs border rounded-lg bg-white font-bold text-slate-900 outline-none max-w-[260px]">
+                <select id="paymentCustFilter" onchange="onPaymentCustomerChange()" class="px-3 py-1 text-xs border rounded-lg bg-white font-bold text-slate-900 outline-none max-w-[220px]">
                   <option value="ALL">All Customers</option>
+                </select>
+              </div>
+
+              <!-- Cycle Filter in Payment Tab -->
+              <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                <span class="text-xs font-bold text-slate-600 pl-1">Cycle:</span>
+                <select id="paymentCycleFilter" onchange="onPaymentCycleChange()" class="px-2.5 py-1 text-xs border rounded-lg bg-white font-mono font-bold text-blue-700 outline-none">
+                  <option value="ALL">All Cycles</option>
                 </select>
               </div>
 
@@ -491,7 +500,7 @@
             </div>
           </div>
 
-          <!-- Dynamic Summary Cards (Totals automatically recalculated) -->
+          <!-- Dynamic Summary Cards -->
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
               <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500" id="statLabelTotal">Total Billed (All Customers)</p>
@@ -516,7 +525,7 @@
             </div>
             <form onsubmit="handleRecordPayment(event)" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label class="block text-[11px] font-bold text-slate-700 mb-1">Payment Date (DD-MM-YYYY)</label>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Payment Date</label>
                 <input type="date" id="payEntryDate" required class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-medium text-slate-800">
               </div>
               <div>
@@ -544,7 +553,7 @@
             </form>
           </div>
 
-          <!-- ALL CUSTOMERS SUMMARY VIEW (When "All Customers" is selected) -->
+          <!-- ALL CUSTOMERS SUMMARY VIEW -->
           <div id="allCustomersSummaryBox" class="space-y-3">
             <h3 class="text-xs font-black uppercase tracking-wider text-slate-700">Company-Wide Customer Balance Summary</h3>
             <div class="overflow-x-auto border rounded-xl shadow-sm">
@@ -833,7 +842,7 @@
     </div>
   </div>
 
-  <!-- 3. PRINTABLE OFFICIAL PAYMENT & TALLY STATEMENT FORMAT (CLEANED - NO DEBIT/CREDIT) -->
+  <!-- 3. PRINTABLE OFFICIAL PAYMENT & TALLY STATEMENT FORMAT -->
   <div id="printablePaymentStatementWrapper" class="bg-white p-4 text-black font-sans text-xs hidden">
     <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto; padding: 16px;">
       
@@ -944,10 +953,11 @@
     let editingCustomerId = null;
     let historyFilter = 'ALL';
     let paymentSelectedCustomer = 'ALL';
+    let paymentSelectedCycle = 'ALL';
     let selectedCycle = calculateCycle(new Date());
     let activeInvoiceCycle = calculateCycle(new Date());
 
-    // Helper: Convert YYYY-MM-DD or standard dates to DD-MM-YYYY
+    // Strict Date Formatter to DD-MM-YYYY
     function formatDisplayDate(dateStr) {
       if (!dateStr) return '-';
       const parts = dateStr.split('-');
@@ -995,6 +1005,7 @@
       setNextDocumentNumber();
       renderCustomers();
       populatePaymentCustomerFilter();
+      populatePaymentCycleFilter();
       renderHistory();
       renderPaymentLedger();
       resetInvoiceForm();
@@ -1021,6 +1032,7 @@
         localStorage.setItem('vsg_documents', JSON.stringify(documents));
         renderHistory();
         populatePaymentCustomerFilter();
+        populatePaymentCycleFilter();
         renderPaymentLedger();
         setNextDocumentNumber();
         populateCycleDropdown();
@@ -1056,6 +1068,7 @@
       if (!val) return;
       activeInvoiceCycle = calculateCycle(val);
       populateCycleDropdown();
+      populatePaymentCycleFilter();
       setNextDocumentNumber();
     }
 
@@ -1079,11 +1092,13 @@
         activeInvoiceCycle = trimmed;
         selectedCycle = trimmed;
         populateCycleDropdown();
+        populatePaymentCycleFilter();
         setNextDocumentNumber();
         alert(`New Cycle ${trimmed} activated! Invoice numbering for this cycle will start from 001.`);
       }
     }
 
+    // PROTECTED DELETION (Requires Login Password "vsg69")
     function deleteActiveInvoiceCycle() {
       deleteCycleHelper(activeInvoiceCycle);
     }
@@ -1099,10 +1114,16 @@
     function deleteCycleHelper(cycleToDelete) {
       if (!cycleToDelete) return;
 
+      const enteredPass = prompt(`Security Verification: Enter admin password to delete cycle "${cycleToDelete}":`);
+      if (enteredPass !== "vsg69") {
+        alert("Incorrect password! Deletion cancelled.");
+        return;
+      }
+
       const matchingDocs = documents.filter(d => (d.cycle || calculateCycle(d.date)) === cycleToDelete);
-      let confirmMsg = `Are you sure you want to delete cycle "${cycleToDelete}"?`;
+      let confirmMsg = `Are you sure you want to permanently delete cycle "${cycleToDelete}"?`;
       if (matchingDocs.length > 0) {
-        confirmMsg = `Cycle "${cycleToDelete}" has ${matchingDocs.length} saved invoice(s). Deleting this cycle will permanently delete all these invoices. Continue?`;
+        confirmMsg = `Cycle "${cycleToDelete}" contains ${matchingDocs.length} saved invoice(s). Deleting this cycle will permanently delete all these invoices. Continue?`;
       }
 
       if (confirm(confirmMsg)) {
@@ -1121,6 +1142,7 @@
         selectedCycle = defaultCurrent;
 
         populateCycleDropdown();
+        populatePaymentCycleFilter();
         renderHistory();
         renderPaymentLedger();
         setNextDocumentNumber();
@@ -1180,6 +1202,7 @@
         selectedCycle = trimmed;
         activeInvoiceCycle = trimmed;
         populateCycleDropdown();
+        populatePaymentCycleFilter();
         renderHistory();
         setNextDocumentNumber();
         alert(`New Cycle ${trimmed} activated! Invoices created in this cycle will start from 001.`);
@@ -1206,6 +1229,7 @@
       if (tab === 'payment') {
         document.getElementById('tabPayment').classList.remove('hidden');
         populatePaymentCustomerFilter();
+        populatePaymentCycleFilter();
         renderPaymentLedger();
       }
     }
@@ -1233,7 +1257,7 @@
         docLabel.textContent = "Quote No:";
         grandLabel.textContent = "ESTIMATED TOTAL:";
         submitDocBtn.className = "px-6 py-2.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition";
-        invNumInput.className = "w-24 px-2.5 py-1 text-xs border rounded-md bg-slate-50 font-mono font-extrabold text-indigo-700";
+        invNumInput.className = "w-28 px-2.5 py-1 text-xs border border-indigo-300 rounded-md bg-white font-mono font-black text-indigo-700 focus:ring-2 focus:ring-indigo-600 outline-none shadow-inner";
       } else {
         btnSwitchInvoice.className = "px-4 py-2 rounded-lg text-xs font-black transition-all shadow-sm bg-blue-600 text-white";
         btnSwitchQuotation.className = "px-4 py-2 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900";
@@ -1243,7 +1267,7 @@
         docLabel.textContent = "Invoice No:";
         grandLabel.textContent = "GRAND TOTAL:";
         submitDocBtn.className = "px-6 py-2.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md transition";
-        invNumInput.className = "w-24 px-2.5 py-1 text-xs border rounded-md bg-slate-50 font-mono font-extrabold text-blue-700";
+        invNumInput.className = "w-28 px-2.5 py-1 text-xs border border-blue-300 rounded-md bg-white font-mono font-black text-blue-700 focus:ring-2 focus:ring-blue-600 outline-none shadow-inner";
       }
 
       setNextDocumentNumber();
@@ -1303,7 +1327,7 @@
       if (direction === -1 && row.previousElementSibling) {
         row.parentNode.insertBefore(row, row.previousElementSibling);
       } else if (direction === 1 && row.nextElementSibling) {
-        row.parentNode.insertBefore(row, row.nextElementSibling);
+        row.parentNode.insertBefore(row.nextElementSibling, row);
       }
       calculateTotals();
     }
@@ -1363,19 +1387,25 @@
       document.getElementById('invDate').valueAsDate = new Date();
       activeInvoiceCycle = calculateCycle(new Date());
       populateCycleDropdown();
+      populatePaymentCycleFilter();
       setNextDocumentNumber();
       addLineItem();
     }
 
     function saveAndPrintInvoice() {
       const custName = document.getElementById('invCustName').value.trim();
+      const docNum = document.getElementById('invNumber').value.trim();
+      
       if (!custName) {
         alert('Please enter or select a customer name!');
         return;
       }
+      if (!docNum) {
+        alert('Please specify an invoice number!');
+        return;
+      }
 
       const { subtotal, sgst, cgst, roundOff, grandTotal } = calculateTotals();
-      const docNum = document.getElementById('invNumber').value;
       const docDate = document.getElementById('invDate').value;
       const vehicle = document.getElementById('invVehicle').value.trim();
       const isQuote = currentDocType === 'QUOTATION';
@@ -1431,6 +1461,7 @@
       cleanupPrintTemplates();
       renderHistory();
       populatePaymentCustomerFilter();
+      populatePaymentCycleFilter();
       renderPaymentLedger();
       resetInvoiceForm();
     }
@@ -1689,6 +1720,7 @@
               populateCycleDropdown();
               renderCustomers();
               populatePaymentCustomerFilter();
+              populatePaymentCycleFilter();
               renderHistory();
               renderPaymentLedger();
               setNextDocumentNumber();
@@ -1752,7 +1784,7 @@
           </td>
           <td class="py-2.5 px-3 font-mono font-bold ${isQuote ? 'text-fuchsia-700' : 'text-emerald-700'}">${doc.number}</td>
           <td class="py-2.5 px-3 font-mono text-[11px] text-slate-600 font-semibold">${docCycle}</td>
-          <td class="py-2.5 px-3 text-slate-600">${formatDisplayDate(doc.date)}</td>
+          <td class="py-2.5 px-3 text-slate-600 font-mono">${formatDisplayDate(doc.date)}</td>
           <td class="py-2.5 px-3 font-medium text-slate-800">${doc.customer}</td>
           <td class="py-2.5 px-3 font-mono text-slate-600">${doc.gstin || '-'}</td>
           <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">₹${doc.total.toFixed(2)}</td>
@@ -1768,7 +1800,7 @@
     }
 
     // ==========================================
-    // 3. TAB 5: RUNNING BALANCE PAYMENT SYSTEM
+    // 3. TAB 5: RUNNING BALANCE & CYCLE FILTERING
     // ==========================================
     function populatePaymentCustomerFilter() {
       const select = document.getElementById('paymentCustFilter');
@@ -1799,8 +1831,37 @@
       }
     }
 
-    function onPaymentFilterChange() {
+    function populatePaymentCycleFilter() {
+      const payCycleSelect = document.getElementById('paymentCycleFilter');
+      if (!payCycleSelect) return;
+
+      const cycleSet = new Set();
+      cycleSet.add(calculateCycle(new Date()));
+      userCycles.forEach(c => cycleSet.add(c));
+      documents.forEach(d => {
+        if (d.cycle) cycleSet.add(d.cycle);
+        else if (d.date) cycleSet.add(calculateCycle(d.date));
+      });
+
+      const sortedCycles = Array.from(cycleSet).sort().reverse();
+      payCycleSelect.innerHTML = '<option value="ALL">All Cycles</option>';
+
+      sortedCycles.forEach(cycle => {
+        const opt = document.createElement('option');
+        opt.value = cycle;
+        opt.textContent = cycle;
+        if (cycle === paymentSelectedCycle) opt.selected = true;
+        payCycleSelect.appendChild(opt);
+      });
+    }
+
+    function onPaymentCustomerChange() {
       paymentSelectedCustomer = document.getElementById('paymentCustFilter').value;
+      renderPaymentLedger();
+    }
+
+    function onPaymentCycleChange() {
+      paymentSelectedCycle = document.getElementById('paymentCycleFilter').value;
       renderPaymentLedger();
     }
 
@@ -1810,7 +1871,6 @@
       renderPaymentLedger();
     }
 
-    // RECORD DIRECT CUSTOMER PAYMENT (Reduces from total)
     function handleRecordPayment(e) {
       e.preventDefault();
       const customer = paymentSelectedCustomer;
@@ -1827,6 +1887,7 @@
       const newPayment = {
         id: Date.now(),
         customer: customer,
+        cycle: calculateCycle(date),
         date: date,
         amount: amount,
         mode: mode,
@@ -1863,31 +1924,38 @@
       const allTbody = document.getElementById('allCustomersTableBody');
       const indTbody = document.getElementById('individualStatementTableBody');
 
-      const invoicesOnly = documents.filter(d => (d.type || 'INVOICE') === 'INVOICE');
+      let invoicesOnly = documents.filter(d => (d.type || 'INVOICE') === 'INVOICE');
+      let paymentsList = [...payments];
 
-      // 1. Calculate Grand Totals across all customers
+      // Apply Year-to-Year Cycle Filter
+      if (paymentSelectedCycle !== 'ALL') {
+        invoicesOnly = invoicesOnly.filter(d => (d.cycle === paymentSelectedCycle) || (!d.cycle && calculateCycle(d.date) === paymentSelectedCycle));
+        paymentsList = paymentsList.filter(p => (p.cycle === paymentSelectedCycle) || (!p.cycle && calculateCycle(p.date) === paymentSelectedCycle));
+      }
+
+      // Grand Totals Calculation
       let totalBilledAll = 0;
       let totalPaidAll = 0;
 
       invoicesOnly.forEach(d => { totalBilledAll += (d.total || 0); });
-      payments.forEach(p => { totalPaidAll += (p.amount || 0); });
+      paymentsList.forEach(p => { totalPaidAll += (p.amount || 0); });
       let totalBalanceAll = totalBilledAll - totalPaidAll;
 
-      // When "ALL CUSTOMERS" is selected
+      // MODE A: ALL CUSTOMERS VIEW
       if (paymentSelectedCustomer === 'ALL') {
         allBox.classList.remove('hidden');
         indBox.classList.add('hidden');
         payRecordBox.classList.add('hidden');
 
-        document.getElementById('statLabelTotal').textContent = "Total Billed (All Customers)";
-        document.getElementById('statLabelPaid').textContent = "Total Received (All Customers)";
-        document.getElementById('statLabelBalance').textContent = "Total Balance (All Customers)";
+        const cycleSuffix = paymentSelectedCycle === 'ALL' ? '' : ` [${paymentSelectedCycle}]`;
+        document.getElementById('statLabelTotal').textContent = `Total Billed (All Customers)${cycleSuffix}`;
+        document.getElementById('statLabelPaid').textContent = `Total Received (All Customers)${cycleSuffix}`;
+        document.getElementById('statLabelBalance').textContent = `Total Balance (All Customers)${cycleSuffix}`;
 
         document.getElementById('auditTotalBilled').textContent = `₹${totalBilledAll.toFixed(2)}`;
         document.getElementById('auditTotalPaid').textContent = `₹${totalPaidAll.toFixed(2)}`;
         document.getElementById('auditTotalPending').textContent = `₹${totalBalanceAll.toFixed(2)}`;
 
-        // Aggregate by Customer
         const customerStats = {};
         customers.forEach(c => {
           if (c.name) customerStats[c.name.trim()] = { billed: 0, paid: 0, balance: 0 };
@@ -1899,7 +1967,7 @@
           customerStats[name].billed += (d.total || 0);
         });
 
-        payments.forEach(p => {
+        paymentsList.forEach(p => {
           const name = (p.customer || '').trim();
           if (!customerStats[name]) customerStats[name] = { billed: 0, paid: 0, balance: 0 };
           customerStats[name].paid += (p.amount || 0);
@@ -1909,7 +1977,7 @@
         const names = Object.keys(customerStats).sort();
 
         if (names.length === 0) {
-          allTbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-400 font-medium">No customer billing records available.</td></tr>`;
+          allTbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-400 font-medium">No customer billing records available for selected cycle.</td></tr>`;
           return;
         }
 
@@ -1935,7 +2003,7 @@
         });
 
       } else {
-        // When INDIVIDUAL CUSTOMER is selected
+        // MODE B: INDIVIDUAL CUSTOMER VIEW
         allBox.classList.add('hidden');
         indBox.classList.remove('hidden');
         payRecordBox.classList.remove('hidden');
@@ -1944,7 +2012,7 @@
         document.getElementById('individualStatementHeading').textContent = `Customer Statement: ${paymentSelectedCustomer}`;
 
         const custInvoices = invoicesOnly.filter(d => (d.customer || '').trim() === paymentSelectedCustomer);
-        const custPayments = payments.filter(p => (p.customer || '').trim() === paymentSelectedCustomer);
+        const custPayments = paymentsList.filter(p => (p.customer || '').trim() === paymentSelectedCustomer);
 
         let custTotalBilled = 0;
         let custTotalPaid = 0;
@@ -1953,15 +2021,15 @@
         custPayments.forEach(p => { custTotalPaid += (p.amount || 0); });
         let custBalance = custTotalBilled - custTotalPaid;
 
-        document.getElementById('statLabelTotal').textContent = `Total Billed (${paymentSelectedCustomer})`;
-        document.getElementById('statLabelPaid').textContent = `Total Received (${paymentSelectedCustomer})`;
-        document.getElementById('statLabelBalance').textContent = `Current Balance (${paymentSelectedCustomer})`;
+        const cycleSuffix = paymentSelectedCycle === 'ALL' ? '' : ` [${paymentSelectedCycle}]`;
+        document.getElementById('statLabelTotal').textContent = `Total Billed (${paymentSelectedCustomer})${cycleSuffix}`;
+        document.getElementById('statLabelPaid').textContent = `Total Received (${paymentSelectedCustomer})${cycleSuffix}`;
+        document.getElementById('statLabelBalance').textContent = `Current Balance (${paymentSelectedCustomer})${cycleSuffix}`;
 
         document.getElementById('auditTotalBilled').textContent = `₹${custTotalBilled.toFixed(2)}`;
         document.getElementById('auditTotalPaid').textContent = `₹${custTotalPaid.toFixed(2)}`;
         document.getElementById('auditTotalPending').textContent = `₹${custBalance.toFixed(2)}`;
 
-        // Build Chronological Transactions List (Invoices + Payments)
         const timeline = [];
 
         custInvoices.forEach(inv => {
@@ -1988,12 +2056,11 @@
           });
         });
 
-        // Sort timeline by date
         timeline.sort((a, b) => new Date(a.date) - new Date(b.date));
 
         indTbody.innerHTML = '';
         if (timeline.length === 0) {
-          indTbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400 font-medium">No transactions recorded for ${paymentSelectedCustomer}.</td></tr>`;
+          indTbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400 font-medium">No transactions recorded for ${paymentSelectedCustomer} in selected cycle.</td></tr>`;
           return;
         }
 
@@ -2040,7 +2107,12 @@
       document.getElementById('stmtPrintCompName').textContent = profile.name;
       document.getElementById('stmtPrintContact').textContent = `Ph: ${profile.contact} | GSTIN: ${profile.gstin}`;
       document.getElementById('stmtPrintAddress').textContent = `${profile.address1} ${profile.address2}`;
-      document.getElementById('stmtGeneratedDate').textContent = new Date().toLocaleDateString('en-GB');
+      
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, '0');
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      document.getElementById('stmtGeneratedDate').textContent = `${dd}-${mm}-${yyyy}`;
       document.getElementById('stmtPrintSignComp').textContent = `For ${profile.name.toUpperCase()}`;
 
       const tHead = document.getElementById('stmtTableHead');
@@ -2048,12 +2120,18 @@
       tHead.innerHTML = '';
       tBody.innerHTML = '';
 
-      const invoicesOnly = documents.filter(d => (d.type || 'INVOICE') === 'INVOICE');
+      let invoicesOnly = documents.filter(d => (d.type || 'INVOICE') === 'INVOICE');
+      let paymentsList = [...payments];
 
-      // MODE A: ALL CUSTOMERS PRINT
+      if (paymentSelectedCycle !== 'ALL') {
+        invoicesOnly = invoicesOnly.filter(d => (d.cycle === paymentSelectedCycle) || (!d.cycle && calculateCycle(d.date) === paymentSelectedCycle));
+        paymentsList = paymentsList.filter(p => (p.cycle === paymentSelectedCycle) || (!p.cycle && calculateCycle(p.date) === paymentSelectedCycle));
+      }
+
+      // PRINT MODE A: ALL CUSTOMERS
       if (paymentSelectedCustomer === 'ALL') {
         document.getElementById('stmtReportTitle').textContent = "ALL CUSTOMERS OUTSTANDING & PAYMENT AUDIT SUMMARY";
-        document.getElementById('stmtCustomerName').textContent = "ALL ACTIVE CLIENTS / WORKSHOP CONSOLIDATED";
+        document.getElementById('stmtCustomerName').textContent = `ALL ACTIVE CLIENTS ${paymentSelectedCycle !== 'ALL' ? '(' + paymentSelectedCycle + ')' : ''}`;
 
         tHead.innerHTML = `
           <tr class="bg-slate-100 text-center font-bold border-b border-black">
@@ -2072,7 +2150,7 @@
           customerStats[name].billed += (d.total || 0);
         });
 
-        payments.forEach(p => {
+        paymentsList.forEach(p => {
           const name = (p.customer || '').trim();
           if (!customerStats[name]) customerStats[name] = { billed: 0, paid: 0, balance: 0 };
           customerStats[name].paid += (p.amount || 0);
@@ -2105,9 +2183,9 @@
         document.getElementById('stmtSumBalance').textContent = `₹${(totalBilled - totalPaid).toFixed(2)}`;
 
       } else {
-        // MODE B: INDIVIDUAL CUSTOMER PRINT (Cleaned Statement: Billed, Paid, Balance Due)
+        // PRINT MODE B: INDIVIDUAL CUSTOMER
         document.getElementById('stmtReportTitle').textContent = "CUSTOMER ACCOUNT STATEMENT & RUNNING BALANCE";
-        document.getElementById('stmtCustomerName').textContent = paymentSelectedCustomer;
+        document.getElementById('stmtCustomerName').textContent = `${paymentSelectedCustomer} ${paymentSelectedCycle !== 'ALL' ? '(' + paymentSelectedCycle + ')' : ''}`;
 
         tHead.innerHTML = `
           <tr class="bg-slate-100 text-center font-bold border-b border-black">
@@ -2122,7 +2200,7 @@
         `;
 
         const custInvoices = invoicesOnly.filter(d => (d.customer || '').trim() === paymentSelectedCustomer);
-        const custPayments = payments.filter(p => (p.customer || '').trim() === paymentSelectedCustomer);
+        const custPayments = paymentsList.filter(p => (p.customer || '').trim() === paymentSelectedCustomer);
 
         const timeline = [];
         custInvoices.forEach(inv => {
@@ -2192,6 +2270,7 @@
       if (doc.cycle) {
         activeInvoiceCycle = doc.cycle;
         populateCycleDropdown();
+        populatePaymentCycleFilter();
       }
 
       if (doc.type === 'QUOTATION') {
@@ -2222,6 +2301,7 @@
         localStorage.setItem('vsg_documents', JSON.stringify(documents));
         renderHistory();
         populatePaymentCustomerFilter();
+        populatePaymentCycleFilter();
         renderPaymentLedger();
         setNextDocumentNumber();
       }
