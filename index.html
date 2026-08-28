@@ -1,186 +1,2718 @@
-import os
-import re
-import json
-import docx
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VSG Industries - Billing & Invoicing Portal</title>
+  
+  <style>
+    .hidden { display: none !important; }
+    body { font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background-color: #f1f5f9; color: #0f172a; }
+    input, select, textarea, button { font-family: inherit; }
+    .font-brand { font-family: 'Cinzel', serif, Georgia, Cambria, serif; }
+    
+    @media print {
+      #offlineScreen, #loginScreen, #appScreen, .no-print { 
+        display: none !important; 
+      }
+      .print-visible {
+        display: block !important;
+        position: relative !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+      }
+      .page-break { page-break-after: always; break-after: page; }
+      @page { size: A4 portrait; margin: 6mm; }
+    }
+  </style>
 
-folder_path = r"C:\Users\Manjith\Downloads\attachments"
-output_file = os.path.join(folder_path, "vsg_bills_backup.json")
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
-def clean_text(text):
-    return re.sub(r'\s+', ' ', text).strip() if text else ""
+  <!-- Firebase App & Firestore SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-900 antialiased min-h-screen">
 
-def parse_num(val_str, default=0.0):
-    if not val_str:
-        return default
-    m = re.search(r'\d+(?:\.\d+)?', val_str.replace(',', ''))
-    if m:
-        try:
-            return float(m.group(0))
-        except:
-            return default
-    return default
+  <!-- OFFLINE WARNING SCREEN -->
+  <div id="offlineScreen" class="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="max-w-md w-full bg-white rounded-2xl shadow-2xl p-8 border border-slate-200 text-center space-y-4">
+      <div class="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto text-3xl font-black">⚡</div>
+      <div>
+        <h2 class="text-xl font-extrabold text-slate-900 tracking-tight">Internet Connection Not Available</h2>
+        <p class="text-xs text-slate-500 mt-2 leading-relaxed">Please connect to Wi-Fi or mobile data to sync with your Cloud Database.</p>
+      </div>
+      <div class="pt-2">
+        <button onclick="window.location.reload()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition shadow-md flex items-center justify-center gap-2">
+          <span>🔄</span> Retry Connection
+        </button>
+      </div>
+      <p class="text-[11px] text-slate-400">VSG Industries Portal • Cloud Sync Shield</p>
+    </div>
+  </div>
 
-def calculate_cycle(date_str):
-    match = re.search(r'(\d{4})', date_str)
-    if match:
-        year = int(match.group(1))
-        next_yr_short = str(year + 1)[-2:]
-        return str(year) + "-" + next_yr_short
-    return "2026-27"
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" class="min-h-screen flex items-center justify-center p-4 bg-slate-100">
+    <div class="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 border border-slate-200 text-slate-900">
+      <div class="text-center mb-6">
+        <h1 id="loginBrandTitle" class="text-2xl font-black tracking-tight font-brand text-slate-900">VSG Industries</h1>
+        <p class="text-xs text-slate-500 mt-1">Authorized Billing & Tax Management System</p>
+      </div>
+      <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">USER ID</label>
+          <input type="text" id="loginUser" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-600 outline-none transition" placeholder="user_name">
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">PASSWORD</label>
+          <input type="password" id="loginPass" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-600 outline-none transition" placeholder="••••••••">
+        </div>
+        <p id="loginError" class="text-xs text-rose-600 font-semibold hidden">Invalid User ID or Password</p>
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm transition shadow-md">Sign In</button>
+      </form>
+    </div>
+  </div>
 
-documents = []
-customers_dict = {}
+  <!-- MAIN APP PORTAL -->
+  <div id="appScreen" class="hidden min-h-screen pb-12 bg-slate-100">
+    <!-- Navbar -->
+    <header class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center no-print shadow-md sticky top-0 z-40">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden p-1 shadow-inner">
+          <img id="navLogoImg" src="" class="max-h-full max-w-full object-contain hidden" alt="VSG Logo">
+          <span id="navLogoPlaceholder" class="font-black text-sm tracking-wider font-brand text-blue-400">V</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 id="navBrandTitle" class="text-base font-black tracking-wide font-brand text-white">VSG INDUSTRIES</h1>
+            <span id="cloudStatusBadge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">☁️ Cloud Connected</span>
+          </div>
+          <p id="navBrandSub" class="text-[11px] text-slate-400">GST: 33AJVPG9441P1ZE | Coimbatore-641028</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="setDocumentType('INVOICE'); switchTab('invoice');" id="btnNavInvoice" class="px-4 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white shadow-md transition">Create Document</button>
+        <button onclick="switchTab('customers')" id="btnNavCustomers" class="px-4 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white shadow-md transition">Customers</button>
+        <button onclick="switchTab('history')" id="btnNavHistory" class="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md transition">History</button>
+        <button onclick="switchTab('payment')" id="btnNavPayment" class="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-md transition">Payment Ledger</button>
+        <button onclick="switchTab('profile')" id="btnNavProfile" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition">Profile & Backup</button>
+        <button onclick="handleLogout()" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white ml-2 shadow-md transition">Logout</button>
+      </div>
+    </header>
 
-for filename in os.listdir(folder_path):
-    if filename.endswith(".docx") and not filename.startswith("~$"):
-        file_full_path = os.path.join(folder_path, filename)
-        try:
-            doc = docx.Document(file_full_path)
-            full_text = "\n".join([p.text for p in doc.paragraphs])
-            for t in doc.tables:
-                for row in t.rows:
-                    full_text += "\n" + " ".join([c.text for c in row.cells])
+    <main class="max-w-6xl mx-auto mt-6 px-4">
+
+      <!-- TAB 1: INVOICE & QUOTATION BUILDER -->
+      <section id="tabInvoice" class="space-y-6">
+        <div class="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 p-6 no-print">
+          
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 mb-6 gap-4">
+            <div class="flex items-center gap-4">
+              <div class="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
+                <button type="button" onclick="setDocumentType('INVOICE')" id="switchBtnInvoice" class="px-4 py-2 rounded-lg text-xs font-black transition-all shadow-sm bg-blue-600 text-white">
+                  📄 Tax Invoice
+                </button>
+                <button type="button" onclick="setDocumentType('QUOTATION')" id="switchBtnQuotation" class="px-4 py-2 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900">
+                  📑 Price Quotation
+                </button>
+              </div>
+              <p id="editingBadge" class="text-xs bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md font-bold hidden">⚠️ Editing Mode</p>
+            </div>
+
+            <!-- Single Line Header Inputs: Cycle, Invoice No, Date, Vehicle No, HSN Code -->
+            <div class="flex items-center gap-3 flex-wrap">
+              <div id="invoiceCycleBadgeBox" class="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-300">
+                <span class="text-[11px] font-bold text-slate-500 uppercase">Cycle:</span>
+                <select id="invCycleSelect" onchange="handleInvoiceCycleChange(this.value)" class="text-xs font-extrabold text-blue-700 font-mono bg-white border border-slate-300 rounded px-1.5 py-0.5 outline-none cursor-pointer focus:ring-1 focus:ring-blue-600"></select>
+                <button type="button" onclick="promptAddNewCycleFromInvoice()" title="Add New Financial Cycle" class="px-1.5 py-0.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded transition flex items-center">
+                  ➕
+                </button>
+                <button type="button" onclick="deleteActiveInvoiceCycle()" title="Delete Current Active Cycle" class="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded transition flex items-center">
+                  🗑️
+                </button>
+              </div>
+
+              <span id="docNumberLabel" class="text-xs font-bold text-slate-600">Invoice No:</span>
+              <input type="text" id="invNumber" class="w-28 px-2.5 py-1 text-xs border border-blue-300 rounded-md bg-white font-mono font-black text-blue-700 focus:ring-2 focus:ring-blue-600 outline-none shadow-inner" placeholder="001">
+              
+              <input type="date" id="invDate" onchange="handleDateChange(this.value)" class="px-2.5 py-1 text-xs border rounded-md text-slate-700 font-medium">
+              <input type="text" id="invVehicle" placeholder="Vehicle No." class="w-28 px-2.5 py-1 text-xs border rounded-md text-slate-700">
+              <input type="text" id="invHSN" placeholder="HSN Code" class="w-28 px-2.5 py-1 text-xs border rounded-md text-slate-700 font-mono">
+            </div>
+          </div>
+
+          <!-- Customer Auto-Fill & Search Section -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Search Customer / Nickname</label>
+              <select id="invCustomerSelect" onchange="autoFillCustomer(this.value)" class="w-full px-3 py-2 border rounded-md text-xs bg-white focus:ring-2 focus:ring-blue-600">
+                <option value="">-- Choose Existing Customer --</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Customer / Company Name</label>
+              <input type="text" id="invCustName" placeholder="e.g. HICAP ENGINEERING PVT LTD" class="w-full px-3 py-2 border rounded-md text-xs bg-white font-medium">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Customer GSTIN</label>
+              <input type="text" id="invGSTIN" placeholder="GSTIN Number" class="w-full px-3 py-2 border rounded-md text-xs bg-white font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Contact Phone</label>
+              <input type="text" id="invPhone" placeholder="Mobile Number" class="w-full px-3 py-2 border rounded-md text-xs bg-white">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-bold text-slate-600 mb-1">Billing Address</label>
+              <input type="text" id="invAddress" placeholder="Full Delivery Address" class="w-full px-3 py-2 border rounded-md text-xs bg-white">
+            </div>
+          </div>
+
+          <!-- Quotation Subject & Custom Body Box -->
+          <div id="quoteSubjectContainer" class="space-y-4 mb-4 hidden">
+            <div>
+              <label class="block text-xs font-bold text-slate-800 mb-1">Quotation Subject (Sub:)</label>
+              <input type="text" id="quoteSubject" value="Quotation For Grill work - Reg" class="w-full px-3 py-2 border rounded-md text-xs bg-slate-50 font-semibold text-slate-800">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-800 mb-1">Quotation Body / Scope of Work & Content</label>
+              <textarea id="quoteBodyText" rows="3" class="w-full px-3 py-2 border rounded-md text-xs bg-slate-50 text-slate-800" placeholder="Type custom technical specifications or introductory notes here..."></textarea>
+            </div>
+          </div>
+
+          <!-- Table Toolbar Tools -->
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-700">Line Items & Calculations</h3>
+            <div class="flex items-center gap-2">
+              <button onclick="addLineItem()" class="px-3 py-1.5 rounded-md bg-blue-50 text-blue-700 font-bold text-xs hover:bg-blue-100 transition shadow-sm">+ Add Row</button>
+              <button onclick="clearAllRows()" class="px-3 py-1.5 rounded-md bg-slate-100 text-slate-600 font-bold text-xs hover:bg-slate-200 transition">Clear All</button>
+            </div>
+          </div>
+
+          <!-- Clean Table: Description, Quantity / Unit (Nos/Sq.Ft), Rate, Amount -->
+          <div class="overflow-x-auto mb-6 border rounded-lg">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-slate-200 bg-slate-100 text-slate-700 uppercase font-bold">
+                  <th class="py-2.5 px-3">Particulars / Description of Goods</th>
+                  <th class="py-2.5 px-2 w-40">Quantity / Unit</th>
+                  <th class="py-2.5 px-3 w-32">Rate (₹)</th>
+                  <th class="py-2.5 px-3 w-32 text-right">Amount (₹)</th>
+                  <th class="py-2.5 px-2 w-24 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="lineItemsBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+
+          <!-- Quotation Specific Terms Form -->
+          <div id="quotationTermsBox" class="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200 hidden">
+            <h4 class="text-xs font-bold text-slate-800 mb-2 uppercase tracking-wide">Quotation Terms & Conditions</h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label class="block font-semibold text-slate-600 mb-1">Advance Payment</label>
+                <input type="text" id="quoteAdvance" value="Advance 60% from the date of PO" class="w-full px-2.5 py-1.5 border rounded-md bg-white">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-600 mb-1">Rates Validity</label>
+                <input type="text" id="quoteValidity" value="Quotation Rates valid 15 days only" class="w-full px-2.5 py-1.5 border rounded-md bg-white">
+              </div>
+              <div>
+                <label class="block font-semibold text-slate-600 mb-1">GST Terms</label>
+                <input type="text" id="quoteGSTTerms" value="GST 18% extra" class="w-full px-2.5 py-1.5 border rounded-md bg-white">
+              </div>
+            </div>
+          </div>
+
+          <!-- Summary Grid with Toggleable Discount Feature -->
+          <div class="flex flex-col md:flex-row justify-between items-start pt-4 border-t border-slate-200 gap-6">
+            <div class="max-w-md w-full space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">Amount in Words</label>
+                <div id="grandTotalWords" class="p-3 bg-slate-50 border rounded-lg text-xs font-semibold text-slate-700 italic min-h-[42px]">Rupees Zero Only</div>
+              </div>
+              <div>
+                <button type="button" onclick="toggleDiscountBox()" id="btnToggleDiscount" class="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold text-xs rounded-lg hover:bg-emerald-100 transition flex items-center gap-1.5 shadow-sm">
+                  <span>🏷️</span> Add Discount (-)
+                </button>
+              </div>
+            </div>
             
-            # Extract invoice number
-            inv_match = re.search(r'(?:INVOICE\s*NO|Invoice\s*No|Inv\s*No)[\s.:]*([A-Za-z0-9\-_/]+)', full_text, re.IGNORECASE)
-            if inv_match:
-                inv_no = inv_match.group(1).strip()
-            else:
-                num_prefix = re.match(r'^(\d+)', filename)
-                inv_no = num_prefix.group(1) if num_prefix else filename.replace(".docx", "")
+            <div class="w-full md:w-80 space-y-2 text-xs">
+              <div class="flex justify-between text-slate-600"><span>Gross Subtotal:</span><span id="subTotalDisplay" class="font-mono font-bold">₹0.00</span></div>
+              
+              <!-- Conditional Discount Row -->
+              <div id="discountRow" class="flex justify-between items-center text-emerald-700 font-bold bg-emerald-50 p-1.5 rounded-md border border-emerald-200 hidden">
+                <span class="flex items-center gap-1">Discount (-):</span>
+                <div class="flex items-center gap-1">
+                  <span>₹</span>
+                  <input type="number" id="invDiscountInput" oninput="calculateTotals()" placeholder="0.00" step="0.01" class="w-24 px-2 py-0.5 text-right font-mono font-bold text-emerald-800 border border-emerald-300 rounded bg-white outline-none focus:ring-1 focus:ring-emerald-600">
+                  <button type="button" onclick="removeDiscount()" class="text-rose-500 hover:text-rose-700 font-bold px-1" title="Remove Discount">✕</button>
+                </div>
+              </div>
 
-            # Extract Date
-            date_match = re.search(r'(?:Date|DATE)[\s.:]*([0-9]{2}[-/][0-9]{2}[-/][0-9]{4}|[0-9]{4}[-/][0-9]{2}[-/][0-9]{2})', full_text)
-            raw_date = date_match.group(1).strip() if date_match else "2026-04-01"
+              <div id="taxableAmountRow" class="flex justify-between text-slate-600 hidden"><span>Taxable Amount:</span><span id="taxableDisplay" class="font-mono font-bold">₹0.00</span></div>
+              <div class="flex justify-between text-slate-600"><span>SGST 9%:</span><span id="sgstDisplay" class="font-mono font-bold">₹0.00</span></div>
+              <div class="flex justify-between text-slate-600"><span>CGST 9%:</span><span id="cgstDisplay" class="font-mono font-bold">₹0.00</span></div>
+              <div class="flex justify-between text-slate-600"><span>Round OFF:</span><span id="roundOffDisplay" class="font-mono font-bold">₹0.00</span></div>
+              <div class="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-200">
+                <span id="grandTotalLabel">GRAND TOTAL:</span>
+                <span id="grandTotalDisplay" class="font-mono text-blue-700 font-extrabold text-base">₹0.00</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Actions -->
+          <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-100">
+            <button id="cancelEditBtn" onclick="cancelEditing()" class="px-4 py-2 rounded-lg text-xs font-bold bg-slate-200 hover:bg-slate-300 text-slate-700 hidden transition">Cancel Edit</button>
+            <button id="submitDocBtn" onclick="saveAndPrintInvoice()" class="px-6 py-2.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md transition">Save to Cloud & Print</button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- TAB 2: COMPANY PROFILE & BACKUP RESTORE -->
+      <section id="tabProfile" class="hidden space-y-6 no-print">
+        <div class="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 p-6 max-w-4xl mx-auto space-y-6">
+          <div class="flex justify-between items-center pb-4 border-b border-slate-100">
+            <h2 class="text-base font-extrabold text-slate-800 tracking-tight">Company & Banking Profile Settings</h2>
+            <button onclick="saveProfileData()" class="px-5 py-2 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">Save to Cloud</button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <label class="block text-xs font-bold text-slate-700 mb-2">Company Main Logo (Top-Left)</label>
+              <div class="flex items-center gap-4">
+                <div id="profileLogoPreview" class="w-16 h-16 border rounded-md bg-white flex items-center justify-center overflow-hidden">
+                  <span class="text-[10px] text-slate-400">No Logo</span>
+                </div>
+                <div>
+                  <input type="file" id="profileLogoInput" accept="image/*" onchange="previewProfileLogo(event)" class="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300">
+                  <p class="text-[11px] text-slate-400 mt-1">Upload main company logo</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <label class="block text-xs font-bold text-slate-700 mb-2">Emblem / Symbol Logo (Top-Right)</label>
+              <div class="flex items-center gap-4">
+                <div id="profileEmblemPreview" class="w-16 h-16 border rounded-md bg-white flex items-center justify-center overflow-hidden">
+                  <span class="text-[10px] text-slate-400">No Emblem</span>
+                </div>
+                <div>
+                  <input type="file" id="profileEmblemInput" accept="image/*" onchange="previewProfileEmblem(event)" class="text-xs text-slate-500 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-200 file:text-slate-800 hover:file:bg-slate-300">
+                  <p class="text-[11px] text-slate-400 mt-1">Upload emblem or symbol</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Company / Business Name</label>
+              <input type="text" id="profCompName" class="w-full px-3 py-2 border rounded-md text-xs bg-white">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">GSTIN Number</label>
+              <input type="text" id="profGSTIN" class="w-full px-3 py-2 border rounded-md text-xs bg-white font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Contact Phone Numbers</label>
+              <input type="text" id="profContact" class="w-full px-3 py-2 border rounded-md text-xs bg-white">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Address Line 1</label>
+              <input type="text" id="profAddress1" class="w-full px-3 py-2 border rounded-md text-xs bg-white">
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-xs font-bold text-slate-600 mb-1">Address Line 2 (City, State, Pincode)</label>
+              <input type="text" id="profAddress2" class="w-full px-3 py-2 border rounded-md text-xs bg-white">
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-slate-200">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Bank Details on Documents</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Bank Name</label>
+                <input type="text" id="profBankName" class="w-full px-3 py-2 border rounded-md text-xs bg-white">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Account Number</label>
+                <input type="text" id="profBankAcc" class="w-full px-3 py-2 border rounded-md text-xs bg-white font-mono">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">IFSC Code</label>
+                <input type="text" id="profBankIFSC" class="w-full px-3 py-2 border rounded-md text-xs bg-white font-mono">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Branch Name</label>
+                <input type="text" id="profBankBranch" class="w-full px-3 py-2 border rounded-md text-xs bg-white">
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-4 border-t border-slate-200 bg-slate-50 p-4 rounded-lg">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">💾 Portal Offline Backup & Restore</h3>
+            <p class="text-[11px] text-slate-500 mb-3">Even with cloud database active, you can still export raw JSON copies anytime.</p>
+            <div class="flex items-center gap-3 flex-wrap">
+              <button onclick="downloadBackup()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition">
+                ⬇️ Download Backup (.json)
+              </button>
+              <label class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-lg shadow-sm transition cursor-pointer">
+                ⬆️ Restore Backup
+                <input type="file" id="restoreFileInput" accept=".json" onchange="restoreBackup(event)" class="hidden">
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: CUSTOMER MASTER -->
+      <section id="tabCustomers" class="hidden space-y-6 no-print">
+        <div class="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 p-6 max-w-6xl mx-auto">
+          <div class="flex justify-between items-center pb-4 border-b border-slate-100 mb-6">
+            <h2 class="text-base font-extrabold text-slate-800 tracking-tight">Customer Management (Cloud Sync)</h2>
+            <span id="custEditBadge" class="text-xs bg-amber-100 text-amber-800 px-3 py-1 rounded-md font-bold hidden">⚠️ Editing Customer</span>
+          </div>
+          <form onsubmit="saveCustomer(event)" id="customerForm" class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Official Company Name</label>
+              <input type="text" id="custName" placeholder="e.g. VSG Auto Parts" required class="w-full px-3 py-2 border rounded-md text-xs bg-white">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Search Keyword / Nickname</label>
+              <input type="text" id="custKeyword" placeholder="e.g. M1 (Won't Print)" class="w-full px-3 py-2 border rounded-md text-xs bg-white">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">GSTIN Number</label>
+              <input type="text" id="custGSTIN" placeholder="GSTIN Number" class="w-full px-3 py-2 border rounded-md text-xs bg-white font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-600 mb-1">Contact Phone</label>
+              <input type="text" id="custPhone" placeholder="Mobile Number" class="w-full px-3 py-2 border rounded-md text-xs bg-white">
+            </div>
+            <div class="md:col-span-3">
+              <label class="block text-xs font-bold text-slate-600 mb-1">Full Billing Address</label>
+              <input type="text" id="custAddress" placeholder="Street Address, City, State, Pincode" required class="w-full px-3 py-2 border rounded-md text-xs bg-white">
+            </div>
+            <div class="flex items-end gap-2">
+              <button type="submit" id="custSubmitBtn" class="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs py-2.5 rounded-md transition shadow-sm">+ Save Customer</button>
+              <button type="button" id="custCancelEditBtn" onclick="cancelCustomerEdit()" class="hidden px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs py-2.5 rounded-md transition">Cancel</button>
+            </div>
+          </form>
+          <div class="overflow-x-auto border rounded-lg">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-700 font-bold border-b">
+                  <th class="py-2.5 px-3">Official Name</th>
+                  <th class="py-2.5 px-3">Search Keyword</th>
+                  <th class="py-2.5 px-3">GSTIN</th>
+                  <th class="py-2.5 px-3">Phone</th>
+                  <th class="py-2.5 px-3">Address</th>
+                  <th class="py-2.5 px-3 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="customerTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: HISTORY -->
+      <section id="tabHistory" class="hidden space-y-6 no-print">
+        <div class="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 p-6 max-w-6xl mx-auto">
+          
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 mb-6 gap-4">
+            <div>
+              <h2 class="text-base font-extrabold text-slate-800 tracking-tight">Historical Documents (Cloud Realtime)</h2>
+              <p class="text-xs text-slate-500">View, download single invoices, or download all invoices in selected cycle</p>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap">
+              <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                <span class="text-xs font-bold text-slate-600 pl-1">Cycle:</span>
+                <select id="historyCycleSelect" onchange="onCycleChange(this.value)" class="px-2 py-1 text-xs border rounded-lg bg-white font-mono font-bold text-blue-700 outline-none"></select>
+              </div>
+
+              <button onclick="promptAddNewCycle()" title="Start a new billing cycle" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1">
+                <span>➕</span> Add Cycle
+              </button>
+
+              <button onclick="deleteSelectedHistoryCycle()" title="Delete Selected Cycle (Requires Password)" class="px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1">
+                <span>🗑️</span> Delete Cycle
+              </button>
+
+              <button onclick="downloadAllInvoicesInCycle()" title="Download / Print all invoices in this cycle" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5">
+                <span>⬇️</span> Download All
+              </button>
+            </div>
+          </div>
+
+          <div class="flex justify-between items-center mb-4">
+            <div class="flex gap-2">
+              <button onclick="filterHistory('ALL')" class="px-3.5 py-1.5 text-xs font-black rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 shadow-sm transition">All</button>
+              <button onclick="filterHistory('INVOICE')" class="px-3.5 py-1.5 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition">📄 Invoices</button>
+              <button onclick="filterHistory('QUOTATION')" class="px-3.5 py-1.5 text-xs font-black rounded-xl bg-fuchsia-600 hover:bg-fuchsia-700 text-white shadow-sm transition">📑 Quotations</button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto border rounded-lg">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-700 font-bold border-b">
+                  <th class="py-2.5 px-3 w-12 text-center">SL.No</th>
+                  <th class="py-2.5 px-3">Type</th>
+                  <th class="py-2.5 px-3">Doc #</th>
+                  <th class="py-2.5 px-3">Cycle</th>
+                  <th class="py-2.5 px-3">Date</th>
+                  <th class="py-2.5 px-3">Customer</th>
+                  <th class="py-2.5 px-3">GSTIN</th>
+                  <th class="py-2.5 px-3 text-right">Grand Total (₹)</th>
+                  <th class="py-2.5 px-3 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: DEDICATED PAYMENT & TALLY RECONCILIATION LEDGER -->
+      <section id="tabPayment" class="space-y-6 no-print">
+        <div class="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 p-6 max-w-6xl mx-auto space-y-6">
+          
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 gap-4">
+            <div>
+              <h2 class="text-base font-extrabold text-slate-800 tracking-tight">Payment & Tally Statement Ledger</h2>
+              <p class="text-xs text-slate-500">Filter by customer or cycle year. Record payments to reduce total balance automatically.</p>
+            </div>
             
-            date_parts = re.split(r'[-/]', raw_date)
-            if len(date_parts) == 3:
-                if len(date_parts[0]) == 4:
-                    iso_date = str(date_parts[0]) + "-" + str(date_parts[1]).zfill(2) + "-" + str(date_parts[2]).zfill(2)
-                else:
-                    iso_date = str(date_parts[2]) + "-" + str(date_parts[1]).zfill(2) + "-" + str(date_parts[0]).zfill(2)
-            else:
-                iso_date = "2026-04-01"
-                
-            # Extract Customer Name
-            cust_name = ""
-            name_match = re.search(r'(?:Name|M/s|To)\s*[:.]*\s*([^\n\r,]+)', full_text, re.IGNORECASE)
-            if name_match:
-                candidate = clean_text(name_match.group(1))
-                if "vsg industries" not in candidate.lower():
-                    cust_name = candidate
-            
-            if not cust_name:
-                cleaned_fn = re.sub(r'^\d+\s*', '', filename.replace(".docx", "")).strip()
-                cust_name = cleaned_fn if cleaned_fn else "Direct Customer"
+            <div class="flex items-center gap-3 flex-wrap">
+              <!-- Customer Filter -->
+              <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                <span class="text-xs font-bold text-slate-600 pl-1">Customer:</span>
+                <select id="paymentCustFilter" onchange="onPaymentCustomerChange()" class="px-3 py-1 text-xs border rounded-lg bg-white font-bold text-slate-900 outline-none max-w-[220px]">
+                  <option value="ALL">All Customers</option>
+                </select>
+              </div>
 
-            # Extract GSTIN & Phone
-            gstin_match = re.search(r'33[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}', full_text)
-            gstin = gstin_match.group(0) if gstin_match and gstin_match.group(0) != "33AJVPG9441P1ZE" else ""
-            
-            phone_match = re.search(r'(?:Contact|Mob|Ph)[\s.:]*([6-9][0-9]{9})', full_text)
-            phone = phone_match.group(1) if phone_match and phone_match.group(1) != "9942947305" else ""
+              <!-- Cycle Filter in Payment Tab -->
+              <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                <span class="text-xs font-bold text-slate-600 pl-1">Cycle:</span>
+                <select id="paymentCycleFilter" onchange="onPaymentCycleChange()" class="px-2.5 py-1 text-xs border rounded-lg bg-white font-mono font-bold text-blue-700 outline-none">
+                  <option value="ALL">All Cycles</option>
+                </select>
+              </div>
 
-            if cust_name not in customers_dict:
-                cust_id = 1000 + len(customers_dict) + 1
-                customers_dict[cust_name] = {
-                    "id": cust_id,
-                    "name": cust_name,
-                    "keyword": cust_name[:6].upper(),
-                    "gstin": gstin,
-                    "phone": phone,
-                    "address": "Coimbatore"
-                }
+              <!-- Print / Download Statement Button -->
+              <button onclick="printPaymentLedgerStatement()" class="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm flex items-center gap-1.5">
+                <span>🖨️</span> Print / PDF Statement
+              </button>
+            </div>
+          </div>
 
-            # Locate ONLY the actual item table
-            items = []
-            subtotal = 0.0
-            
-            for table in doc.tables:
-                header_text = " ".join([clean_text(c.text).lower() for c in table.rows[0].cells]) if table.rows else ""
-                
-                # Check if this table is the goods breakdown table
-                if any(k in header_text for k in ["description", "particulars", "goods", "qts", "rate"]):
-                    for row in table.rows[1:]:
-                        cells = [clean_text(c.text) for c in row.cells]
-                        if len(cells) >= 3:
-                            desc = cells[1] if len(cells) > 3 else cells[0]
-                            qty_str = cells[2] if len(cells) > 3 else cells[1]
-                            rate_str = cells[3] if len(cells) > 3 else cells[2]
-                            
-                            qty_val = parse_num(qty_str, 1.0)
-                            rate_val = parse_num(rate_str, 0.0)
-                            
-                            # Filter out headers, totals, bank info, or phone numbers
-                            invalid_terms = ["total", "sub total", "grand total", "cgst", "sgst", "bank", "cell", "industries", "signature", "receiver", "layout"]
-                            if desc and not any(term in desc.lower() for term in invalid_terms):
-                                if rate_val < 5000000 and qty_val < 10000: # Exclude phone number values
-                                    if rate_val > 0:
-                                        items.append({
-                                            "desc": desc,
-                                            "qty": str(int(qty_val)) if qty_val.is_integer() else str(qty_val),
-                                            "rate": rate_val
-                                        })
-                                        subtotal += (qty_val * rate_val)
+          <!-- Dynamic Summary Cards -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500" id="statLabelTotal">Total Billed (All Customers)</p>
+              <p id="auditTotalBilled" class="text-xl font-black font-mono text-slate-900 mt-1">₹0.00</p>
+            </div>
+            <div class="p-4 bg-emerald-50/80 border border-emerald-200 rounded-xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800" id="statLabelPaid">Total Received (All Customers)</p>
+              <p id="auditTotalPaid" class="text-xl font-black font-mono text-emerald-700 mt-1">₹0.00</p>
+            </div>
+            <div class="p-4 bg-amber-50/80 border border-amber-200 rounded-xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-amber-800" id="statLabelBalance">Total Balance (All Customers)</p>
+              <p id="auditTotalPending" class="text-xl font-black font-mono text-amber-700 mt-1">₹0.00</p>
+            </div>
+          </div>
 
-            # Fallback if specific table wasn't matched
-            if not items:
-                items.append({"desc": "General Lathe & Fabrication Works", "qty": "1", "rate": 1000.0})
-                subtotal = 1000.0
+          <!-- PAYMENT RECORDING BOX (Shown ONLY when viewing an Individual Customer) -->
+          <div id="paymentRecordBox" class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 rounded-xl hidden">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-xs font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
+                <span>💳</span> Record New Payment for <span id="payEntryCustomerNameLabel" class="underline ml-1"></span>
+              </h3>
+            </div>
+            <form onsubmit="handleRecordPayment(event)" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Payment Date</label>
+                <input type="date" id="payEntryDate" required class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-medium text-slate-800">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Amount Received (₹)</label>
+                <input type="number" step="0.01" id="payEntryAmount" placeholder="e.g. 50000" required class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-mono font-bold text-emerald-700">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Payment Mode</label>
+                <select id="payEntryMode" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-semibold text-slate-800">
+                  <option value="Cash">Cash</option>
+                  <option value="RTGS">RTGS</option>
+                  <option value="Cheque">Cheque</option>
+                  <option value="UPI">UPI</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Remarks / Note</label>
+                <div class="flex gap-2">
+                  <input type="text" id="payEntryRef" placeholder="Txn / Chq / Ref (Optional)" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none text-slate-800">
+                  <button type="submit" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition shadow-sm whitespace-nowrap">
+                    + Save
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
 
-            sgst = round(subtotal * 0.09, 2)
-            cgst = round(subtotal * 0.09, 2)
-            raw_grand = subtotal + sgst + cgst
-            grand_total = round(raw_grand)
-            round_off = round(grand_total - raw_grand, 2)
-            
-            formatted_inv_no = str(inv_no).zfill(3) if str(inv_no).isdigit() else str(inv_no)
-            
-            documents.append({
-                "type": "INVOICE",
-                "number": formatted_inv_no,
-                "cycle": calculate_cycle(iso_date),
-                "date": iso_date,
-                "vehicle": "",
-                "customer": cust_name,
-                "gstin": gstin,
-                "phone": phone,
-                "address": "Coimbatore",
-                "items": items,
-                "subtotal": subtotal,
-                "sgst": sgst,
-                "cgst": cgst,
-                "roundOff": round_off,
-                "total": grand_total,
-                "status": "PAID"
-            })
-            print(f"Cleaned: {filename} -> Inv #{formatted_inv_no} (Total: Rs.{grand_total})")
-            
-        except Exception as e:
-            print(f"Error reading {filename}: {e}")
+          <!-- ALL CUSTOMERS SUMMARY VIEW -->
+          <div id="allCustomersSummaryBox" class="space-y-3">
+            <h3 class="text-xs font-black uppercase tracking-wider text-slate-700">Company-Wide Customer Balance Summary</h3>
+            <div class="overflow-x-auto border rounded-xl shadow-sm">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                    <th class="py-3 px-3 w-12 text-center">SL</th>
+                    <th class="py-3 px-4">Customer / Company Name</th>
+                    <th class="py-3 px-3 text-right">Total Billed (₹)</th>
+                    <th class="py-3 px-3 text-right text-emerald-700">Total Received (₹)</th>
+                    <th class="py-3 px-3 text-right text-amber-700">Balance Due (₹)</th>
+                    <th class="py-3 px-3 text-center">Quick Action</th>
+                  </tr>
+                </thead>
+                <tbody id="allCustomersTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
 
-backup_json = {
-    "version": "2.0",
-    "exportDate": "2026-08-28T00:00:00.000Z",
-    "profile": {
-        "name": "VSG Industries",
-        "tagline": "ALL KINDS OF AUTOMOBILE LATHE, FABRICATION & WELDING WORKS",
-        "address1": "55,Tank Road Nataraj Gounder Layout,",
-        "address2": "Sivanandha Colony,Coimbatore-641028",
-        "contact": "9942947305",
-        "gstin": "33AJVPG9441P1ZE",
-        "bankName": "Indian Overseas Bank",
-        "bankAcc": "170902000001290",
-        "bankIFSC": "IOBA0001709",
-        "bankBranch": "Rathinapuri,CBE-27"
-    },
-    "customers": list(customers_dict.values()),
-    "documents": sorted(documents, key=lambda x: str(x["number"])),
-    "payments": [],
-    "userCycles": list(set([d["cycle"] for d in documents]))
-}
+          <!-- INDIVIDUAL CUSTOMER DETAILED STATEMENT VIEW -->
+          <div id="individualStatementBox" class="space-y-3 hidden">
+            <div class="flex justify-between items-center">
+              <h3 id="individualStatementHeading" class="text-xs font-black uppercase tracking-wider text-slate-800"></h3>
+              <span class="text-xs text-slate-500 italic">Chronological Statement of Invoices & Payments</span>
+            </div>
+            <div class="overflow-x-auto border rounded-xl shadow-sm">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                    <th class="py-3 px-3 w-12 text-center">SL</th>
+                    <th class="py-3 px-3 w-28">Date</th>
+                    <th class="py-3 px-3">Invoice #</th>
+                    <th class="py-3 px-4">Payment Mode / Remarks</th>
+                    <th class="py-3 px-3 text-right text-slate-900">Billed Amount</th>
+                    <th class="py-3 px-3 text-right text-emerald-700">Paid Amount</th>
+                    <th class="py-3 px-3 text-right font-black text-blue-950">Running Balance (₹)</th>
+                    <th class="py-3 px-3 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="individualStatementTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
 
-with open(output_file, "w", encoding="utf-8") as f:
-    json.dump(backup_json, f, indent=2, ensure_ascii=False)
+        </div>
+      </section>
 
-print(f"\nCompleted! Generated clean backup with {len(documents)} bills.")
+    </main>
+  </div>
+
+  <!-- 1. PRINTABLE EXACT ORIGINAL TAX INVOICE FORMAT (Single Header HSN Code & Vehicle No Box) -->
+  <div id="printableInvoiceWrapper" class="bg-white p-2 text-black font-sans text-xs hidden">
+    <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto;">
+      <div class="p-2 border-b-2 border-black flex items-center justify-between">
+        <div class="w-20 h-16 flex items-center justify-center">
+          <img id="printLogoLeft" src="" class="max-h-16 max-w-full object-contain hidden" alt="Logo">
+          <div id="logoLeftPlaceholder" class="w-12 h-12 rounded-full border border-slate-300 flex items-center justify-center text-[10px] text-slate-400 font-bold">LOGO</div>
+        </div>
+        <div class="text-center flex-1">
+          <h1 id="printCompanyName" class="text-3xl font-black tracking-widest text-black font-brand uppercase">VSG Industries</h1>
+        </div>
+        <div class="w-20 h-16 flex items-center justify-center">
+          <img id="printLogoRight" src="" class="max-h-16 max-w-full object-contain hidden" alt="Emblem">
+          <div id="logoRightPlaceholder" class="w-10 h-10 border border-slate-300 flex items-center justify-center text-[9px] text-slate-400 font-bold">EMBLEM</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-12 border-b-2 border-black text-[13px] font-bold">
+        <div class="col-span-8 p-2 border-r-2 border-black text-center flex flex-col justify-center leading-snug">
+          <p id="printCompanyAddress1">55,Tank Road Nataraj Gounder Layout,</p>
+          <p id="printCompanyAddress2">Sivanandha Colony,Coimbatore-641028</p>
+        </div>
+        <div class="col-span-4 flex flex-col justify-center">
+          <div class="grid grid-cols-12 border-b border-black p-1.5 items-center">
+            <span class="col-span-4 font-bold">Contact</span>
+            <span id="printCompanyContact" class="col-span-8 font-mono text-[14px] font-extrabold text-right">9942947305</span>
+          </div>
+          <div class="grid grid-cols-12 p-1.5 items-center">
+            <span class="col-span-4 font-bold">GST NO</span>
+            <span id="printCompanyGST" class="col-span-8 font-mono font-extrabold text-[12px] text-right">33AJVPG9441P1ZE</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="border-b-2 border-black text-center py-1 font-black text-sm uppercase tracking-widest bg-slate-50">
+        TAX INVOICE
+      </div>
+
+      <div class="grid grid-cols-12 border-b-2 border-black text-[13px]">
+        <div class="col-span-7 border-r-2 border-black">
+          <div class="font-extrabold px-2 py-0.5 border-b border-black bg-slate-50 text-[12px] uppercase">CUSTOMER DETAILS</div>
+          <div class="grid grid-cols-12 border-b border-black items-center">
+            <span class="col-span-3 px-2 py-1 font-bold border-r border-black">Name:</span>
+            <span id="printCustName" class="col-span-9 px-2 py-1 font-extrabold text-[14px]"></span>
+          </div>
+          <div class="grid grid-cols-12 border-b border-black items-center">
+            <span class="col-span-3 px-2 py-1 font-bold border-r border-black">Address:</span>
+            <span id="printCustAddress" class="col-span-9 px-2 py-1 leading-tight min-h-[34px] flex items-center font-semibold"></span>
+          </div>
+          <div class="grid grid-cols-12 border-b border-black items-center">
+            <span class="col-span-3 px-2 py-1 font-bold border-r border-black">GSTIN:</span>
+            <span id="printCustGSTIN" class="col-span-9 px-2 py-1 font-mono font-extrabold text-[13px]"></span>
+          </div>
+          <div class="grid grid-cols-12 items-center">
+            <span class="col-span-3 px-2 py-1 font-bold border-r border-black">Contact:</span>
+            <span id="printCustPhone" class="col-span-9 px-2 py-1 font-mono font-bold text-[13px]"></span>
+          </div>
+        </div>
+
+        <div class="col-span-5 flex flex-col justify-between font-bold">
+          <div class="grid grid-cols-2 border-b border-black p-1.5 items-center">
+            <span class="text-[12px]">INVOICE NO</span>
+            <span id="printInvNo" class="font-mono font-black text-right text-[15px]"></span>
+          </div>
+          <div class="grid grid-cols-2 border-b border-black p-1.5 items-center">
+            <span class="text-[12px]">Date</span>
+            <span id="printInvDate" class="font-mono font-bold text-right text-[13px]"></span>
+          </div>
+          <div class="grid grid-cols-2 border-b border-black p-1.5 items-center">
+            <span class="text-[12px]">Vehicle NO.</span>
+            <span id="printInvVehicle" class="font-mono font-bold text-right text-[13px]"></span>
+          </div>
+          <div class="grid grid-cols-2 p-1.5 items-center min-h-[28px]">
+            <span class="text-[12px]">HSN/SAC Code</span>
+            <span id="printInvHSN" class="font-mono font-extrabold text-right text-[13px]"></span>
+          </div>
+        </div>
+      </div>
+
+      <table class="w-full text-left border-collapse text-[12px]">
+        <thead>
+          <tr class="border-b-2 border-black font-extrabold text-center text-[12px]">
+            <th rowspan="2" class="py-1 px-1 w-10 border-r-2 border-black">SL</th>
+            <th rowspan="2" class="py-1 px-2 border-r-2 border-black text-left">Description of Goods</th>
+            <th rowspan="2" class="py-1 px-1 w-20 border-r-2 border-black">Qts / Unit</th>
+            <th rowspan="2" class="py-1 px-2 w-24 border-r-2 border-black">Rate</th>
+            <th colspan="2" class="py-0.5 border-b border-black">Amount</th>
+          </tr>
+          <tr class="border-b-2 border-black font-extrabold text-center text-[11px]">
+            <th class="py-0.5 px-1 w-20 border-r border-black text-right">₹ (Rs.)</th>
+            <th class="py-0.5 px-1 w-10 text-center">Ps.</th>
+          </tr>
+        </thead>
+        <tbody id="printLineItems"></tbody>
+      </table>
+
+      <div class="grid grid-cols-12 border-t-2 border-black text-[12px]">
+        <div class="col-span-7 border-r-2 border-black flex flex-col justify-between">
+          <div class="border-b-2 border-black text-center font-black py-0.5 bg-slate-50 uppercase text-[11px]">TOTAL</div>
+          <div class="p-3 flex-1 flex flex-col justify-center">
+            <div class="font-black underline text-[11px] uppercase tracking-wider text-slate-800">AMOUNT IN WORDS</div>
+            <div id="printWords" class="italic font-extrabold mt-1 leading-snug text-slate-900 text-[14px]">Rupees Zero Only</div>
+          </div>
+        </div>
+        <div class="col-span-5">
+          <div class="border-b-2 border-black text-center font-black py-0.5 bg-slate-50 uppercase text-[11px]">Summary</div>
+          <div class="flex justify-between border-b border-black px-3 py-1.5 items-center">
+            <span class="font-bold text-[13px]">Total Amount</span>
+            <span id="printSubTotal" class="font-mono font-extrabold text-[13px]">₹0.00</span>
+          </div>
+          <div id="printDiscountContainer" class="flex justify-between border-b border-black px-3 py-1.5 items-center hidden font-bold text-emerald-900 bg-emerald-50/50">
+            <span class="text-[13px]">Discount (-)</span>
+            <span id="printDiscount" class="font-mono font-extrabold text-[13px]">₹0.00</span>
+          </div>
+          <div class="flex justify-between border-b border-black px-3 py-1.5 items-center">
+            <span class="font-bold text-[13px]">SGST 9%</span>
+            <span id="printSGST" class="font-mono font-extrabold text-[13px]">₹0.00</span>
+          </div>
+          <div class="flex justify-between border-b border-black px-3 py-1.5 items-center">
+            <span class="font-bold text-[13px]">CGST 9%</span>
+            <span id="printCGST" class="font-mono font-extrabold text-[13px]">₹0.00</span>
+          </div>
+          <div class="flex justify-between border-b border-black px-3 py-1.5 items-center">
+            <span class="font-bold text-[13px]">ROUND OFF</span>
+            <span id="printRoundOff" class="font-mono font-extrabold text-[13px]">₹0.00</span>
+          </div>
+          <div class="flex justify-between px-3 py-2 font-black bg-slate-100 items-center">
+            <span class="text-[14px]">GRAND TOTAL</span>
+            <span id="printGrandTotal" class="font-mono text-base font-black text-slate-950">₹0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-12 border-t-2 border-black text-[12px]">
+        <div class="col-span-5 p-2 border-r-2 border-black space-y-0.5 font-semibold">
+          <p id="printBankHeading" class="font-black text-[13px]">VSG Industries</p>
+          <p id="printBankName">Bank Name : Indian Overseas Bank</p>
+          <p id="printBankAcc">ACC No: 170902000001290</p>
+          <p id="printBankIFSC">IFSC Code: IOBA0001709</p>
+          <p id="printBankBranch">Branch : Rathinapuri,CBE-27</p>
+        </div>
+        <div class="col-span-3 p-2 border-r-2 border-black flex flex-col justify-end text-center font-bold">
+          <p>Receiver's Signature</p>
+        </div>
+        <div class="col-span-4 p-2 flex flex-col justify-between text-center">
+          <p id="printSignatureHeading" class="font-black text-[13px]">For VSG Industries</p>
+          <p class="font-bold mt-8">Authorised Signatory</p>
+        </div>
+      </div>
+
+      <div class="border-t-2 border-black text-center py-1 font-black text-xs bg-slate-50 tracking-wider">
+        Thank you for your Business. Visit Again!!
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. EXACT ORIGINAL PRICE QUOTATION FORMAT -->
+  <div id="printableQuotationWrapper" class="bg-white p-4 text-black font-sans text-xs hidden">
+    <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto; padding: 16px;">
+      <div class="flex items-center justify-between border-b-2 border-black pb-3">
+        <div class="w-20 flex items-center justify-center">
+          <img id="quotePrintLogoLeft" src="" class="max-h-16 max-w-full object-contain hidden" alt="Logo">
+          <div id="quoteLogoLeftPlaceholder" class="w-12 h-12 rounded-full border border-slate-300 flex items-center justify-center text-[10px] text-slate-400 font-bold">LOGO</div>
+        </div>
+        <div class="text-center flex-1 px-2">
+          <h1 id="quotePrintCompName" class="text-3xl font-black tracking-wider text-black font-brand uppercase">VSG Industries</h1>
+          <p class="text-[11px] font-bold text-slate-800 tracking-tight mt-0.5">ALL KINDS OF AUTOMOBILE LATHE, FABRICATION & WELDING WORKS</p>
+          <p id="quotePrintPhones" class="text-[12px] font-mono font-bold mt-0.5">99429 47305 | 63692 25534</p>
+          <p id="quotePrintGST" class="text-[11px] font-mono font-bold">GST No.: 33AJVPG9441P1ZE</p>
+          <p id="quotePrintAddress" class="text-[11px] font-semibold">55, Tank Road, Nataraj Gounder Layout, Sivanandha Colony, Cbe 641 012.</p>
+        </div>
+        <div class="w-20 flex items-center justify-center">
+          <img id="quotePrintLogoRight" src="" class="max-h-16 max-w-full object-contain hidden" alt="Emblem">
+          <div id="quoteLogoRightPlaceholder" class="w-10 h-10 border border-slate-300 flex items-center justify-center text-[9px] text-slate-400 font-bold">EMBLEM</div>
+        </div>
+      </div>
+
+      <div class="text-center my-3">
+        <span class="border-b-2 border-black font-black text-base uppercase tracking-widest px-4 pb-0.5">QUOTATION</span>
+      </div>
+
+      <div class="flex justify-between items-start text-[13px] mb-3">
+        <div class="max-w-[420px]">
+          <p class="font-bold">To</p>
+          <p id="quotePrintCustName" class="font-black text-sm uppercase"></p>
+          <p id="quotePrintCustAddress" class="whitespace-pre-line leading-snug font-medium text-slate-800"></p>
+          <p id="quotePrintCustPhone" class="font-mono text-xs"></p>
+        </div>
+        <div class="text-right">
+          <p class="font-bold">Date: <span id="quotePrintDate" class="font-mono font-bold"></span></p>
+          <p class="font-bold">Ref / Quote: <span id="quotePrintNo" class="font-mono font-bold text-indigo-700"></span></p>
+        </div>
+      </div>
+
+      <div class="text-[12px] space-y-1 mb-3">
+        <p class="font-bold">Sir,</p>
+        <p class="font-bold text-[13px] pl-4"><span id="quotePrintSubject">Sub: Quotation For Grill work - Reg</span></p>
+        <p class="font-medium text-slate-800 pl-4">Further to your enquiry we feel privileged to submit our offer detailed as below</p>
+        <div id="quotePrintCustomBody" class="pl-4 pt-1 font-medium text-slate-900 whitespace-pre-line leading-relaxed hidden"></div>
+      </div>
+
+      <table class="w-full text-left border-collapse text-[12px] mb-4" style="border: 1.5px solid #000;">
+        <thead>
+          <tr class="border-b-2 border-black font-bold text-center bg-slate-50">
+            <th class="py-2 px-2 w-12 border-r border-black">S.No.</th>
+            <th class="py-2 px-3 border-r border-black text-left">Particulars</th>
+            <th class="py-2 px-2 w-28 border-r border-black">Qty / Unit</th>
+            <th class="py-2 px-2 w-28 border-r border-black">Rate</th>
+            <th class="py-2 px-3 w-32 text-right">Amount</th>
+          </tr>
+        </thead>
+        <tbody id="quotePrintLineItems"></tbody>
+      </table>
+
+      <!-- Quotation Discount Row if active -->
+      <div id="quotePrintDiscountBox" class="border border-black p-2 mb-3 font-bold flex justify-between items-center hidden bg-slate-50">
+        <span>Discount Applied:</span>
+        <span id="quotePrintDiscountAmt" class="font-mono font-black text-emerald-800"></span>
+      </div>
+
+      <p class="text-[12px] font-medium text-slate-800 mb-3">
+        We trust our offer is up to your satisfaction. If should have any queries please feel free to contact us. Thank You,
+      </p>
+
+      <div class="grid grid-cols-12 gap-4 border-t-2 border-black pt-3 text-[12px]">
+        <div class="col-span-6 space-y-1">
+          <p id="quotePrintAdvance" class="font-bold">• Advance 60% from the date of PO</p>
+          <p id="quotePrintValidity" class="font-bold">• Quotation Rates valid 15 days only</p>
+          <p id="quotePrintGSTTerms" class="font-bold">• GST 18% extra</p>
+          
+          <div class="pt-3 text-[11px] space-y-0.5 border-t border-slate-300 mt-2">
+            <p class="font-black uppercase tracking-wider">BANK DETAILS</p>
+            <p id="quotePrintBankName">Bank Name: Indian Overseas Bank</p>
+            <p id="quotePrintBankAcc">Acc. No.: 170902000001290</p>
+            <p id="quotePrintBankIFSC">IFSC Code: IOBA0001709</p>
+            <p id="quotePrintBankBranch">Branch: Rathinapuri, CBE- 27.</p>
+          </div>
+        </div>
+
+        <div class="col-span-6 flex flex-col justify-between text-right pr-4">
+          <div>
+            <p class="font-black text-sm uppercase" id="quotePrintSignComp">For VSG INDUSTRIES</p>
+            <p class="font-semibold text-xs mt-1 text-slate-700">Yours Faithfully,</p>
+          </div>
+          <div class="mt-14">
+            <p class="font-bold text-xs uppercase border-t border-black inline-block pt-1">Authorised Signatory</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. PRINTABLE OFFICIAL PAYMENT & TALLY STATEMENT FORMAT -->
+  <div id="printablePaymentStatementWrapper" class="bg-white p-4 text-black font-sans text-xs hidden">
+    <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto; padding: 16px;">
+      
+      <div class="flex items-center justify-between border-b-2 border-black pb-3">
+        <div class="w-20 flex items-center justify-center">
+          <img id="stmtPrintLogo" src="" class="max-h-16 max-w-full object-contain hidden" alt="Logo">
+          <div id="stmtLogoPlaceholder" class="w-12 h-12 rounded-full border border-slate-300 flex items-center justify-center text-[10px] text-slate-400 font-bold">LOGO</div>
+        </div>
+        <div class="text-center flex-1 px-2">
+          <h1 id="stmtPrintCompName" class="text-2xl font-black tracking-wider text-black font-brand uppercase">VSG Industries</h1>
+          <p class="text-[11px] font-bold text-slate-800 tracking-tight mt-0.5">ALL KINDS OF AUTOMOBILE LATHE, FABRICATION & WELDING WORKS</p>
+          <p id="stmtPrintContact" class="text-[11px] font-mono font-bold mt-0.5"></p>
+          <p id="stmtPrintAddress" class="text-[11px] font-semibold"></p>
+        </div>
+        <div class="w-20"></div>
+      </div>
+
+      <div class="text-center my-3">
+        <span id="stmtReportTitle" class="border-b-2 border-black font-black text-sm uppercase tracking-widest px-4 pb-0.5">
+          ACCOUNT STATEMENT & PAYMENT RECONCILIATION
+        </span>
+      </div>
+
+      <div class="flex justify-between items-center text-[12px] mb-3 bg-slate-50 p-2 border border-black">
+        <div>
+          <p class="font-bold">Account Name: <span id="stmtCustomerName" class="font-black text-[13px] text-blue-950 uppercase"></span></p>
+        </div>
+        <div class="text-right">
+          <p class="font-bold">Statement Generated: <span id="stmtGeneratedDate" class="font-mono font-bold"></span></p>
+        </div>
+      </div>
+
+      <table class="w-full text-left border-collapse text-[11px] mb-4" style="border: 1.5px solid #000;">
+        <thead id="stmtTableHead"></thead>
+        <tbody id="stmtTableBody"></tbody>
+      </table>
+
+      <div class="grid grid-cols-3 gap-2 border-2 border-black p-2.5 bg-slate-50 text-[12px] font-bold mb-6">
+        <div>Total Billed: <span id="stmtSumBilled" class="font-mono font-black text-slate-900 ml-1">₹0.00</span></div>
+        <div>Total Received: <span id="stmtSumPaid" class="font-mono font-black text-emerald-800 ml-1">₹0.00</span></div>
+        <div>Balance Due: <span id="stmtSumBalance" class="font-mono font-black text-rose-800 ml-1">₹0.00</span></div>
+      </div>
+
+      <div class="flex justify-between items-end pt-8 text-[12px]">
+        <div class="text-center">
+          <p class="border-t border-black pt-1 font-bold">Customer Confirmation</p>
+        </div>
+        <div class="text-center">
+          <p id="stmtPrintSignComp" class="font-black text-xs uppercase mb-8">For VSG INDUSTRIES</p>
+          <p class="border-t border-black pt-1 font-bold">Authorised Signatory</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CONTAINER FOR BATCH/DOWNLOAD ALL PRINTING -->
+  <div id="batchPrintArea" class="hidden"></div>
+
+  <script>
+    // ==========================================
+    // 1. FIREBASE INITIALIZATION WITH YOUR KEYS
+    // ==========================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyBnVW43gZhecWSnDhi_xaMv2SJfffiq_zo",
+      authDomain: "vsg-billing.firebaseapp.com",
+      projectId: "vsg-billing",
+      storageBucket: "vsg-billing.firebasestorage.app",
+      messagingSenderId: "643450805665",
+      appId: "1:643450805665:web:5f3f21845968e9e80e7fe0"
+    };
+
+    let db = null;
+    let isCloudActive = false;
+
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+      isCloudActive = true;
+    } catch (e) {
+      console.warn("Cloud Firestore initialization fallback to local.", e);
+    }
+
+    const defaultProfile = {
+      name: 'VSG Industries',
+      tagline: 'ALL KINDS OF AUTOMOBILE LATHE, FABRICATION & WELDING WORKS',
+      address1: '55,Tank Road Nataraj Gounder Layout,',
+      address2: 'Sivanandha Colony,Coimbatore-641028',
+      contact: '9942947305',
+      gstin: '33AJVPG9441P1ZE',
+      bankName: 'Indian Overseas Bank',
+      bankAcc: '170902000001290',
+      bankIFSC: 'IOBA0001709',
+      bankBranch: 'Rathinapuri,CBE-27',
+      logo: '',
+      emblem: ''
+    };
+
+    let profile = JSON.parse(localStorage.getItem('vsg_company_profile')) || defaultProfile;
+    let customers = JSON.parse(localStorage.getItem('vsg_customers')) || [];
+    let documents = JSON.parse(localStorage.getItem('vsg_documents')) || [];
+    let payments = JSON.parse(localStorage.getItem('vsg_payments')) || [];
+    let userCycles = JSON.parse(localStorage.getItem('vsg_user_cycles')) || [];
+    let currentDocType = 'INVOICE';
+    let editingDocNumber = null;
+    let editingCustomerId = null;
+    let historyFilter = 'ALL';
+    let paymentSelectedCustomer = 'ALL';
+    let paymentSelectedCycle = 'ALL';
+    let selectedCycle = calculateCycle(new Date());
+    let activeInvoiceCycle = calculateCycle(new Date());
+    let isDiscountActive = false;
+
+    // Strict Date Formatter to DD-MM-YYYY
+    function formatDisplayDate(dateStr) {
+      if (!dateStr) return '-';
+      const parts = dateStr.split('-');
+      if (parts.length === 3 && parts[0].length === 4) {
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+      return dateStr;
+    }
+
+    function calculateCycle(dateInput) {
+      const d = new Date(dateInput);
+      const month = d.getMonth() + 1;
+      const year = d.getFullYear();
+      if (month >= 4) {
+        return `${year}-${String(year + 1).slice(-2)}`;
+      } else {
+        return `${year - 1}-${String(year).slice(-2)}`;
+      }
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const u = document.getElementById('loginUser').value.trim();
+      const p = document.getElementById('loginPass').value.trim();
+      if (u === 'ganesh' && p === 'vsg69') {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('appScreen').classList.remove('hidden');
+        initApp();
+      } else {
+        document.getElementById('loginError').classList.remove('hidden');
+      }
+    }
+
+    function handleLogout() {
+      document.getElementById('appScreen').classList.add('hidden');
+      document.getElementById('loginScreen').classList.remove('hidden');
+    }
+
+    function initApp() {
+      document.getElementById('invDate').valueAsDate = new Date();
+      document.getElementById('payEntryDate').valueAsDate = new Date();
+      activeInvoiceCycle = calculateCycle(new Date());
+      loadProfileToUI();
+      populateCycleDropdown();
+      setNextDocumentNumber();
+      renderCustomers();
+      populatePaymentCustomerFilter();
+      populatePaymentCycleFilter();
+      renderHistory();
+      renderPaymentLedger();
+      resetInvoiceForm();
+
+      if (isCloudActive) {
+        listenCloudSync();
+      } else {
+        const badge = document.getElementById('cloudStatusBadge');
+        if (badge) {
+          badge.textContent = "💾 Local Storage Mode";
+          badge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30";
+        }
+      }
+    }
+
+    // ==========================================
+    // 2. CLOUD FIRESTORE REALTIME SYNC
+    // ==========================================
+    function listenCloudSync() {
+      db.collection("documents").onSnapshot((snapshot) => {
+        const docs = [];
+        snapshot.forEach((d) => docs.push(d.data()));
+        documents = docs;
+        localStorage.setItem('vsg_documents', JSON.stringify(documents));
+        renderHistory();
+        populatePaymentCustomerFilter();
+        populatePaymentCycleFilter();
+        renderPaymentLedger();
+        setNextDocumentNumber();
+        populateCycleDropdown();
+      });
+
+      db.collection("customers").onSnapshot((snapshot) => {
+        const custs = [];
+        snapshot.forEach((d) => custs.push(d.data()));
+        customers = custs;
+        localStorage.setItem('vsg_customers', JSON.stringify(customers));
+        renderCustomers();
+        populatePaymentCustomerFilter();
+      });
+
+      db.collection("payments").onSnapshot((snapshot) => {
+        const pays = [];
+        snapshot.forEach((d) => pays.push(d.data()));
+        payments = pays;
+        localStorage.setItem('vsg_payments', JSON.stringify(payments));
+        renderPaymentLedger();
+      });
+
+      db.collection("settings").doc("profile").onSnapshot((docSnap) => {
+        if (docSnap.exists) {
+          profile = docSnap.data();
+          localStorage.setItem('vsg_company_profile', JSON.stringify(profile));
+          loadProfileToUI();
+        }
+      });
+    }
+
+    function handleDateChange(val) {
+      if (!val) return;
+      activeInvoiceCycle = calculateCycle(val);
+      populateCycleDropdown();
+      populatePaymentCycleFilter();
+      setNextDocumentNumber();
+    }
+
+    function handleInvoiceCycleChange(cycleVal) {
+      activeInvoiceCycle = cycleVal;
+      setNextDocumentNumber();
+    }
+
+    function promptAddNewCycleFromInvoice() {
+      const current = activeInvoiceCycle || calculateCycle(new Date());
+      const nextSuggestedParts = current.split('-');
+      const nextSuggested = `${parseInt(nextSuggestedParts[0], 10) + 1}-${parseInt(nextSuggestedParts[1], 10) + 1}`;
+      
+      const newCycle = prompt("Enter New Billing Cycle Name (e.g., 2027-28):", nextSuggested);
+      if (newCycle && newCycle.trim()) {
+        const trimmed = newCycle.trim();
+        if (!userCycles.includes(trimmed)) {
+          userCycles.push(trimmed);
+          localStorage.setItem('vsg_user_cycles', JSON.stringify(userCycles));
+        }
+        activeInvoiceCycle = trimmed;
+        selectedCycle = trimmed;
+        populateCycleDropdown();
+        populatePaymentCycleFilter();
+        setNextDocumentNumber();
+        alert(`New Cycle ${trimmed} activated! Invoice numbering for this cycle will start from 001.`);
+      }
+    }
+
+    function deleteActiveInvoiceCycle() {
+      deleteCycleHelper(activeInvoiceCycle);
+    }
+
+    function deleteSelectedHistoryCycle() {
+      if (selectedCycle === 'ALL') {
+        alert("Please select a specific cycle from the dropdown to delete.");
+        return;
+      }
+      deleteCycleHelper(selectedCycle);
+    }
+
+    function deleteCycleHelper(cycleToDelete) {
+      if (!cycleToDelete) return;
+
+      const enteredPass = prompt(`Security Verification: Enter admin password to delete cycle "${cycleToDelete}":`);
+      if (enteredPass !== "vsg69") {
+        alert("Incorrect password! Deletion cancelled.");
+        return;
+      }
+
+      const matchingDocs = documents.filter(d => (d.cycle || calculateCycle(d.date)) === cycleToDelete);
+      let confirmMsg = `Are you sure you want to permanently delete cycle "${cycleToDelete}"?`;
+      if (matchingDocs.length > 0) {
+        confirmMsg = `Cycle "${cycleToDelete}" contains ${matchingDocs.length} saved invoice(s). Deleting this cycle will permanently delete all these invoices. Continue?`;
+      }
+
+      if (confirm(confirmMsg)) {
+        userCycles = userCycles.filter(c => c !== cycleToDelete);
+        localStorage.setItem('vsg_user_cycles', JSON.stringify(userCycles));
+
+        if (isCloudActive) {
+          matchingDocs.forEach(d => db.collection("documents").doc(d.number).delete());
+        }
+
+        documents = documents.filter(d => (d.cycle || calculateCycle(d.date)) !== cycleToDelete);
+        localStorage.setItem('vsg_documents', JSON.stringify(documents));
+
+        const defaultCurrent = calculateCycle(new Date());
+        activeInvoiceCycle = defaultCurrent;
+        selectedCycle = defaultCurrent;
+
+        populateCycleDropdown();
+        populatePaymentCycleFilter();
+        renderHistory();
+        renderPaymentLedger();
+        setNextDocumentNumber();
+        alert(`Cycle "${cycleToDelete}" and associated records deleted successfully.`);
+      }
+    }
+
+    function populateCycleDropdown() {
+      const historySelect = document.getElementById('historyCycleSelect');
+      const invoiceSelect = document.getElementById('invCycleSelect');
+      const cycleSet = new Set();
+      
+      cycleSet.add(calculateCycle(new Date()));
+      userCycles.forEach(c => cycleSet.add(c));
+      documents.forEach(d => {
+        if (d.cycle) cycleSet.add(d.cycle);
+        else if (d.date) cycleSet.add(calculateCycle(d.date));
+      });
+
+      const sortedCycles = Array.from(cycleSet).sort().reverse();
+
+      if (historySelect) {
+        historySelect.innerHTML = '<option value="ALL">All Cycles</option>';
+        sortedCycles.forEach(cycle => {
+          const opt = document.createElement('option');
+          opt.value = cycle;
+          opt.textContent = cycle;
+          if (cycle === selectedCycle) opt.selected = true;
+          historySelect.appendChild(opt);
+        });
+      }
+
+      if (invoiceSelect) {
+        invoiceSelect.innerHTML = '';
+        sortedCycles.forEach(cycle => {
+          const opt = document.createElement('option');
+          opt.value = cycle;
+          opt.textContent = cycle;
+          if (cycle === activeInvoiceCycle) opt.selected = true;
+          invoiceSelect.appendChild(opt);
+        });
+      }
+    }
+
+    function promptAddNewCycle() {
+      const current = calculateCycle(new Date());
+      const nextSuggestedParts = current.split('-');
+      const nextSuggested = `${parseInt(nextSuggestedParts[0], 10) + 1}-${parseInt(nextSuggestedParts[1], 10) + 1}`;
+      
+      const newCycle = prompt("Enter New Billing Cycle Name (e.g., 2027-28):", nextSuggested);
+      if (newCycle && newCycle.trim()) {
+        const trimmed = newCycle.trim();
+        if (!userCycles.includes(trimmed)) {
+          userCycles.push(trimmed);
+          localStorage.setItem('vsg_user_cycles', JSON.stringify(userCycles));
+        }
+        selectedCycle = trimmed;
+        activeInvoiceCycle = trimmed;
+        populateCycleDropdown();
+        populatePaymentCycleFilter();
+        renderHistory();
+        setNextDocumentNumber();
+        alert(`New Cycle ${trimmed} activated! Invoices created in this cycle will start from 001.`);
+      }
+    }
+
+    function onCycleChange(val) {
+      selectedCycle = val;
+      renderHistory();
+    }
+
+    function switchTab(tab) {
+      ['tabInvoice', 'tabProfile', 'tabCustomers', 'tabHistory', 'tabPayment'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+      });
+      if (tab === 'invoice') document.getElementById('tabInvoice').classList.remove('hidden');
+      if (tab === 'profile') document.getElementById('tabProfile').classList.remove('hidden');
+      if (tab === 'customers') document.getElementById('tabCustomers').classList.remove('hidden');
+      if (tab === 'history') {
+        document.getElementById('tabHistory').classList.remove('hidden');
+        populateCycleDropdown();
+        renderHistory();
+      }
+      if (tab === 'payment') {
+        document.getElementById('tabPayment').classList.remove('hidden');
+        populatePaymentCustomerFilter();
+        populatePaymentCycleFilter();
+        renderPaymentLedger();
+      }
+    }
+
+    function setDocumentType(type) {
+      currentDocType = type;
+      const isQuote = type === 'QUOTATION';
+      
+      const termsBox = document.getElementById('quotationTermsBox');
+      const subjectBox = document.getElementById('quoteSubjectContainer');
+      const docLabel = document.getElementById('docNumberLabel');
+      const grandLabel = document.getElementById('grandTotalLabel');
+      const btnSwitchInvoice = document.getElementById('switchBtnInvoice');
+      const btnSwitchQuotation = document.getElementById('switchBtnQuotation');
+      const submitDocBtn = document.getElementById('submitDocBtn');
+      const invNumInput = document.getElementById('invNumber');
+      const cycleBadgeBox = document.getElementById('invoiceCycleBadgeBox');
+      
+      if (isQuote) {
+        btnSwitchQuotation.className = "px-4 py-2 rounded-lg text-xs font-black transition-all shadow-sm bg-indigo-600 text-white";
+        btnSwitchInvoice.className = "px-4 py-2 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900";
+        termsBox.classList.remove('hidden');
+        subjectBox.classList.remove('hidden');
+        cycleBadgeBox.classList.add('hidden');
+        docLabel.textContent = "Quote No:";
+        grandLabel.textContent = "ESTIMATED TOTAL:";
+        submitDocBtn.className = "px-6 py-2.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition";
+        invNumInput.className = "w-28 px-2.5 py-1 text-xs border border-indigo-300 rounded-md bg-white font-mono font-black text-indigo-700 focus:ring-2 focus:ring-indigo-600 outline-none shadow-inner";
+      } else {
+        btnSwitchInvoice.className = "px-4 py-2 rounded-lg text-xs font-black transition-all shadow-sm bg-blue-600 text-white";
+        btnSwitchQuotation.className = "px-4 py-2 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900";
+        termsBox.classList.add('hidden');
+        subjectBox.classList.add('hidden');
+        cycleBadgeBox.classList.remove('hidden');
+        docLabel.textContent = "Invoice No:";
+        grandLabel.textContent = "GRAND TOTAL:";
+        submitDocBtn.className = "px-6 py-2.5 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md transition";
+        invNumInput.className = "w-28 px-2.5 py-1 text-xs border border-blue-300 rounded-md bg-white font-mono font-black text-blue-700 focus:ring-2 focus:ring-blue-600 outline-none shadow-inner";
+      }
+
+      setNextDocumentNumber();
+    }
+
+    function setNextDocumentNumber() {
+      if (editingDocNumber) return;
+      const isQuote = currentDocType === 'QUOTATION';
+      const prefix = isQuote ? 'QT-' : '';
+      let maxNum = 0;
+      
+      documents.filter(d => {
+        if (isQuote) return (d.type || 'INVOICE') === 'QUOTATION';
+        const docCycle = d.cycle || calculateCycle(d.date);
+        return (d.type || 'INVOICE') === 'INVOICE' && docCycle === activeInvoiceCycle;
+      }).forEach(doc => {
+        const raw = (doc.number || '').replace('QT-', '');
+        const n = parseInt(raw, 10);
+        if (!isNaN(n) && n > maxNum) maxNum = n;
+      });
+
+      document.getElementById('invNumber').value = prefix + String(maxNum + 1).padStart(3, '0');
+    }
+
+    // DISCOUNT TOGGLE FUNCTIONS
+    function toggleDiscountBox() {
+      isDiscountActive = true;
+      document.getElementById('discountRow').classList.remove('hidden');
+      document.getElementById('taxableAmountRow').classList.remove('hidden');
+      document.getElementById('btnToggleDiscount').classList.add('hidden');
+      document.getElementById('invDiscountInput').focus();
+      calculateTotals();
+    }
+
+    function removeDiscount() {
+      isDiscountActive = false;
+      document.getElementById('invDiscountInput').value = '';
+      document.getElementById('discountRow').classList.add('hidden');
+      document.getElementById('taxableAmountRow').classList.add('hidden');
+      document.getElementById('btnToggleDiscount').classList.remove('hidden');
+      calculateTotals();
+    }
+
+    // LINE ITEM ROW: Description + Quantity & Unit Dropdown (Nos / Sq.Ft / Kg / Set / Mtr / Hours) + Rate
+    function addLineItem(desc = '', qty = 1, unit = 'Nos', rate = 0) {
+      const tbody = document.getElementById('lineItemsBody');
+      const tr = document.createElement('tr');
+      tr.className = 'line-item-row hover:bg-slate-50 transition';
+      tr.innerHTML = `
+        <td class="py-2 px-3">
+          <textarea rows="1" class="item-desc w-full border rounded-md px-2.5 py-1.5 text-xs resize-y" placeholder="Particulars / Item Description">${desc}</textarea>
+        </td>
+        <td class="py-2 px-2">
+          <div class="flex items-center gap-1">
+            <input type="text" oninput="calculateTotals()" class="item-qty w-16 border rounded-md px-2 py-1 text-right text-xs font-mono font-bold" value="${qty}">
+            <select onchange="calculateTotals()" class="item-unit border rounded-md px-1.5 py-1 text-xs bg-white text-slate-700 outline-none font-semibold">
+              <option value="Nos" ${unit === 'Nos' ? 'selected' : ''}>Nos</option>
+              <option value="Sq.Ft" ${unit === 'Sq.Ft' ? 'selected' : ''}>Sq.Ft</option>
+              <option value="Kg" ${unit === 'Kg' ? 'selected' : ''}>Kg</option>
+              <option value="Set" ${unit === 'Set' ? 'selected' : ''}>Set</option>
+              <option value="Mtr" ${unit === 'Mtr' ? 'selected' : ''}>Mtr</option>
+              <option value="Hrs" ${unit === 'Hrs' ? 'selected' : ''}>Hrs</option>
+            </select>
+          </div>
+        </td>
+        <td class="py-2 px-3">
+          <input type="number" oninput="calculateTotals()" class="item-rate w-full border rounded-md px-2 py-1 text-right text-xs font-mono" value="${rate}" step="0.01">
+        </td>
+        <td class="py-2 px-3 text-right font-mono font-bold item-total text-slate-800">₹0.00</td>
+        <td class="py-2 px-2 text-center">
+          <div class="inline-flex items-center gap-1">
+            <button title="Move Up" onclick="moveRow(this, -1)" class="p-1 text-slate-400 hover:text-slate-700 text-xs">▲</button>
+            <button title="Move Down" onclick="moveRow(this, 1)" class="p-1 text-slate-400 hover:text-slate-700 text-xs">▼</button>
+            <button title="Duplicate Row" onclick="cloneRow(this)" class="p-1 text-indigo-600 hover:text-indigo-800 font-bold text-xs">⎘</button>
+            <button title="Delete Row" onclick="this.closest('tr').remove(); calculateTotals();" class="p-1 text-rose-500 hover:text-rose-700 font-bold text-xs">✕</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+      calculateTotals();
+    }
+
+    function cloneRow(btn) {
+      const row = btn.closest('tr');
+      const desc = row.querySelector('.item-desc').value;
+      const qty = row.querySelector('.item-qty').value;
+      const unit = row.querySelector('.item-unit').value;
+      const rate = row.querySelector('.item-rate').value;
+      addLineItem(desc, qty, unit, rate);
+    }
+
+    function moveRow(btn, direction) {
+      const row = btn.closest('tr');
+      if (direction === -1 && row.previousElementSibling) {
+        row.parentNode.insertBefore(row, row.previousElementSibling);
+      } else if (direction === 1 && row.nextElementSibling) {
+        row.parentNode.insertBefore(row, row.nextElementSibling);
+      }
+      calculateTotals();
+    }
+
+    function clearAllRows() {
+      if (confirm('Clear all line items in this document?')) {
+        document.getElementById('lineItemsBody').innerHTML = '';
+        addLineItem();
+      }
+    }
+
+    function splitRsPs(amount) {
+      const fixed = Number(amount).toFixed(2);
+      const parts = fixed.split('.');
+      return { rs: parts[0], ps: parts[1] };
+    }
+
+    function calculateTotals() {
+      let subtotal = 0;
+      document.querySelectorAll('.line-item-row').forEach(row => {
+        const rawQty = row.querySelector('.item-qty').value;
+        const qtyNum = parseFloat(rawQty) || 1;
+        const rate = parseFloat(row.querySelector('.item-rate').value) || 0;
+        const lineTotal = qtyNum * rate;
+        row.querySelector('.item-total').textContent = `₹${lineTotal.toFixed(2)}`;
+        subtotal += lineTotal;
+      });
+
+      let discount = 0;
+      if (isDiscountActive) {
+        discount = parseFloat(document.getElementById('invDiscountInput').value) || 0;
+        if (discount > subtotal) discount = subtotal;
+      }
+
+      const taxableAmount = Math.max(0, subtotal - discount);
+
+      const sgst = taxableAmount * 0.09;
+      const cgst = taxableAmount * 0.09;
+      const rawGrand = taxableAmount + sgst + cgst;
+      const grandTotal = Math.round(rawGrand);
+      const roundOff = grandTotal - rawGrand;
+
+      document.getElementById('subTotalDisplay').textContent = `₹${subtotal.toFixed(2)}`;
+      document.getElementById('taxableDisplay').textContent = `₹${taxableAmount.toFixed(2)}`;
+      document.getElementById('sgstDisplay').textContent = `₹${sgst.toFixed(2)}`;
+      document.getElementById('cgstDisplay').textContent = `₹${cgst.toFixed(2)}`;
+      document.getElementById('roundOffDisplay').textContent = `₹${roundOff.toFixed(2)}`;
+      document.getElementById('grandTotalDisplay').textContent = `₹${grandTotal.toFixed(2)}`;
+      document.getElementById('grandTotalWords').textContent = numberToWordsIndian(grandTotal) + " Only";
+
+      return { subtotal, discount, taxableAmount, sgst, cgst, roundOff, grandTotal };
+    }
+
+    function resetInvoiceForm() {
+      editingDocNumber = null;
+      removeDiscount();
+      document.getElementById('editingBadge').classList.add('hidden');
+      document.getElementById('cancelEditBtn').classList.add('hidden');
+      document.getElementById('lineItemsBody').innerHTML = '';
+      document.getElementById('invCustomerSelect').value = '';
+      document.getElementById('invCustName').value = '';
+      document.getElementById('invGSTIN').value = '';
+      document.getElementById('invPhone').value = '';
+      document.getElementById('invAddress').value = '';
+      document.getElementById('invVehicle').value = '';
+      document.getElementById('invHSN').value = '';
+      document.getElementById('quoteBodyText').value = '';
+      document.getElementById('invDate').valueAsDate = new Date();
+      activeInvoiceCycle = calculateCycle(new Date());
+      populateCycleDropdown();
+      populatePaymentCycleFilter();
+      setNextDocumentNumber();
+      addLineItem();
+    }
+
+    function saveAndPrintInvoice() {
+      const custName = document.getElementById('invCustName').value.trim();
+      const docNum = document.getElementById('invNumber').value.trim();
+      
+      if (!custName) {
+        alert('Please enter or select a customer name!');
+        return;
+      }
+      if (!docNum) {
+        alert('Please specify an invoice number!');
+        return;
+      }
+
+      const { subtotal, discount, taxableAmount, sgst, cgst, roundOff, grandTotal } = calculateTotals();
+      const docDate = document.getElementById('invDate').value;
+      const vehicle = document.getElementById('invVehicle').value.trim();
+      const hsn = document.getElementById('invHSN').value.trim();
+      const isQuote = currentDocType === 'QUOTATION';
+      const quoteBody = document.getElementById('quoteBodyText').value.trim();
+      const cycleVal = isQuote ? '' : activeInvoiceCycle;
+
+      const items = [];
+      document.querySelectorAll('.line-item-row').forEach(row => {
+        items.push({
+          desc: row.querySelector('.item-desc').value.trim(),
+          qty: row.querySelector('.item-qty').value.trim(),
+          unit: row.querySelector('.item-unit').value,
+          rate: parseFloat(row.querySelector('.item-rate').value) || 0
+        });
+      });
+
+      const docData = {
+        type: currentDocType,
+        number: docNum,
+        cycle: cycleVal,
+        date: docDate,
+        vehicle: vehicle,
+        hsn: hsn,
+        customer: custName,
+        gstin: document.getElementById('invGSTIN').value,
+        phone: document.getElementById('invPhone').value,
+        address: document.getElementById('invAddress').value,
+        items: items,
+        subtotal: subtotal,
+        discount: discount,
+        taxableAmount: taxableAmount,
+        sgst: sgst,
+        cgst: cgst,
+        roundOff: roundOff,
+        total: grandTotal,
+        quoteSubject: isQuote ? document.getElementById('quoteSubject').value : '',
+        quoteBody: isQuote ? quoteBody : '',
+        quoteAdvance: isQuote ? document.getElementById('quoteAdvance').value : '',
+        quoteValidity: isQuote ? document.getElementById('quoteValidity').value : '',
+        quoteGSTTerms: isQuote ? document.getElementById('quoteGSTTerms').value : ''
+      };
+
+      if (isCloudActive) {
+        db.collection("documents").doc(docNum).set(docData);
+      }
+
+      if (editingDocNumber) {
+        const index = documents.findIndex(d => d.number === editingDocNumber);
+        if (index !== -1) documents[index] = docData;
+      } else {
+        documents.push(docData);
+      }
+
+      localStorage.setItem('vsg_documents', JSON.stringify(documents));
+      populatePrintTemplates(docData);
+      window.print();
+      cleanupPrintTemplates();
+      renderHistory();
+      populatePaymentCustomerFilter();
+      populatePaymentCycleFilter();
+      renderPaymentLedger();
+      resetInvoiceForm();
+    }
+
+    function populatePrintTemplates(doc) {
+      const isQuote = (doc.type || 'INVOICE') === 'QUOTATION';
+      const invWrapper = document.getElementById('printableInvoiceWrapper');
+      const quoteWrapper = document.getElementById('printableQuotationWrapper');
+      const stmtWrapper = document.getElementById('printablePaymentStatementWrapper');
+      
+      document.getElementById('batchPrintArea').classList.add('hidden');
+      stmtWrapper.classList.add('hidden');
+      stmtWrapper.classList.remove('print-visible');
+
+      if (isQuote) {
+        invWrapper.classList.add('hidden');
+        invWrapper.classList.remove('print-visible');
+        
+        quoteWrapper.classList.remove('hidden');
+        quoteWrapper.classList.add('print-visible');
+
+        document.getElementById('quotePrintCompName').textContent = profile.name;
+        document.getElementById('quotePrintPhones').textContent = profile.contact;
+        document.getElementById('quotePrintGST').textContent = `GST No.: ${profile.gstin}`;
+        document.getElementById('quotePrintAddress').textContent = `${profile.address1} ${profile.address2}`;
+        
+        document.getElementById('quotePrintNo').textContent = doc.number;
+        document.getElementById('quotePrintDate').textContent = formatDisplayDate(doc.date);
+        document.getElementById('quotePrintCustName').textContent = doc.customer;
+        document.getElementById('quotePrintCustAddress').textContent = doc.address || '';
+        document.getElementById('quotePrintCustPhone').textContent = doc.phone ? `Ph: ${doc.phone}` : '';
+
+        document.getElementById('quotePrintSubject').textContent = `Sub: ${doc.quoteSubject || 'Quotation'} - Reg`;
+
+        const printBodyBox = document.getElementById('quotePrintCustomBody');
+        if (doc.quoteBody) {
+          printBodyBox.textContent = doc.quoteBody;
+          printBodyBox.classList.remove('hidden');
+        } else {
+          printBodyBox.textContent = '';
+          printBodyBox.classList.add('hidden');
+        }
+
+        const quoteDiscBox = document.getElementById('quotePrintDiscountBox');
+        if (doc.discount && doc.discount > 0) {
+          quoteDiscBox.classList.remove('hidden');
+          document.getElementById('quotePrintDiscountAmt').textContent = `(-) ₹${doc.discount.toFixed(2)}`;
+        } else {
+          quoteDiscBox.classList.add('hidden');
+        }
+
+        document.getElementById('quotePrintAdvance').textContent = `• ${doc.quoteAdvance || 'Advance 60% from the date of PO'}`;
+        document.getElementById('quotePrintValidity').textContent = `• ${doc.quoteValidity || 'Quotation Rates valid 15 days only'}`;
+        document.getElementById('quotePrintGSTTerms').textContent = `• ${doc.quoteGSTTerms || 'GST 18% extra'}`;
+
+        document.getElementById('quotePrintBankName').textContent = `Bank Name: ${profile.bankName}`;
+        document.getElementById('quotePrintBankAcc').textContent = `Acc. No.: ${profile.bankAcc}`;
+        document.getElementById('quotePrintBankIFSC').textContent = `IFSC Code: ${profile.bankIFSC}`;
+        document.getElementById('quotePrintBankBranch').textContent = `Branch: ${profile.bankBranch}`;
+        document.getElementById('quotePrintSignComp').textContent = `For ${profile.name.toUpperCase()}`;
+
+        const quoteTbody = document.getElementById('quotePrintLineItems');
+        quoteTbody.innerHTML = '';
+        let idx = 1;
+        (doc.items || []).forEach(item => {
+          const qtyNum = parseFloat(item.qty) || 1;
+          const totalAmt = (qtyNum * parseFloat(item.rate)).toFixed(2);
+          const unitStr = item.unit ? ` ${item.unit}` : '';
+          const tr = document.createElement('tr');
+          tr.className = 'border-b border-black text-center align-top';
+          tr.innerHTML = `
+            <td class="py-1.5 px-2 border-r border-black font-bold text-center">${idx++}</td>
+            <td class="py-1.5 px-3 border-r border-black text-left font-semibold whitespace-pre-line leading-relaxed">${item.desc}</td>
+            <td class="py-1.5 px-2 border-r border-black font-mono font-bold">${item.qty}${unitStr}</td>
+            <td class="py-1.5 px-2 border-r border-black text-right font-mono font-bold">${parseFloat(item.rate).toFixed(2)}</td>
+            <td class="py-1.5 px-3 text-right font-mono font-bold text-[13px]">${totalAmt}</td>
+          `;
+          quoteTbody.appendChild(tr);
+        });
+
+      } else {
+        quoteWrapper.classList.add('hidden');
+        quoteWrapper.classList.remove('print-visible');
+        
+        invWrapper.classList.remove('hidden');
+        invWrapper.classList.add('print-visible');
+
+        document.getElementById('printInvNo').textContent = doc.number;
+        document.getElementById('printInvDate').textContent = formatDisplayDate(doc.date);
+        document.getElementById('printInvVehicle').textContent = doc.vehicle || '';
+        document.getElementById('printInvHSN').textContent = doc.hsn || '-';
+        document.getElementById('printCustName').textContent = doc.customer;
+        document.getElementById('printCustGSTIN').textContent = doc.gstin || '';
+        document.getElementById('printCustPhone').textContent = doc.phone || '';
+        document.getElementById('printCustAddress').textContent = doc.address || '';
+
+        const printItemsTbody = document.getElementById('printLineItems');
+        printItemsTbody.innerHTML = '';
+        let itemCount = (doc.items || []).length;
+        let idx = 1;
+
+        (doc.items || []).forEach(item => {
+          const qtyNum = parseFloat(item.qty) || 1;
+          const itemAmount = qtyNum * parseFloat(item.rate);
+          const splitAmt = splitRsPs(itemAmount);
+          const unitStr = item.unit && item.unit !== 'Nos' ? ` ${item.unit}` : (item.unit === 'Nos' ? ' Nos' : '');
+
+          const tr = document.createElement('tr');
+          tr.className = 'border-b border-black text-center font-bold align-top min-h-[28px]';
+          tr.innerHTML = `
+            <td class="py-1.5 px-1 border-r-2 border-black text-[12px]">${idx++}</td>
+            <td class="py-1.5 px-2 border-r-2 border-black text-left font-extrabold text-[13px] whitespace-pre-line">${item.desc}</td>
+            <td class="py-1.5 px-1 border-r-2 border-black font-mono text-[12px]">${item.qty}${unitStr}</td>
+            <td class="py-1.5 px-2 border-r-2 border-black text-right font-mono text-[13px]">${parseFloat(item.rate).toFixed(2)}</td>
+            <td class="py-1.5 px-2 border-r border-black text-right font-mono font-black text-[13px]">${splitAmt.rs}</td>
+            <td class="py-1.5 px-1 text-center font-mono font-black text-[13px]">${splitAmt.ps}</td>
+          `;
+          printItemsTbody.appendChild(tr);
+        });
+
+        const TARGET_ROWS = 9;
+        const fillerRowsNeeded = Math.max(0, TARGET_ROWS - itemCount);
+
+        if (fillerRowsNeeded > 0) {
+          const fillerTr = document.createElement('tr');
+          const rowHeight = fillerRowsNeeded * 28;
+          fillerTr.style.height = `${rowHeight}px`;
+          fillerTr.className = 'text-center select-none';
+          fillerTr.innerHTML = `
+            <td class="border-r-2 border-black text-transparent">&nbsp;</td>
+            <td class="border-r-2 border-black text-transparent">&nbsp;</td>
+            <td class="border-r-2 border-black text-transparent">&nbsp;</td>
+            <td class="border-r-2 border-black text-transparent">&nbsp;</td>
+            <td class="border-r border-black text-transparent">&nbsp;</td>
+            <td class="text-transparent">&nbsp;</td>
+          `;
+          printItemsTbody.appendChild(fillerTr);
+        }
+
+        document.getElementById('printSubTotal').textContent = `₹${doc.subtotal.toFixed(2)}`;
+        
+        const printDiscountBox = document.getElementById('printDiscountContainer');
+        if (doc.discount && doc.discount > 0) {
+          printDiscountBox.classList.remove('hidden');
+          document.getElementById('printDiscount').textContent = `(-) ₹${doc.discount.toFixed(2)}`;
+        } else {
+          printDiscountBox.classList.add('hidden');
+        }
+
+        document.getElementById('printSGST').textContent = `₹${doc.sgst.toFixed(2)}`;
+        document.getElementById('printCGST').textContent = `₹${doc.cgst.toFixed(2)}`;
+        document.getElementById('printRoundOff').textContent = `₹${doc.roundOff.toFixed(2)}`;
+        document.getElementById('printGrandTotal').textContent = `₹${doc.total.toFixed(2)}`;
+        document.getElementById('printWords').textContent = numberToWordsIndian(doc.total) + " Only";
+      }
+    }
+
+    function cleanupPrintTemplates() {
+      const invWrapper = document.getElementById('printableInvoiceWrapper');
+      const quoteWrapper = document.getElementById('printableQuotationWrapper');
+      const stmtWrapper = document.getElementById('printablePaymentStatementWrapper');
+      const batchArea = document.getElementById('batchPrintArea');
+      
+      invWrapper.classList.add('hidden');
+      invWrapper.classList.remove('print-visible');
+      quoteWrapper.classList.add('hidden');
+      quoteWrapper.classList.remove('print-visible');
+      stmtWrapper.classList.add('hidden');
+      stmtWrapper.classList.remove('print-visible');
+      batchArea.classList.add('hidden');
+      batchArea.classList.remove('print-visible');
+      batchArea.innerHTML = '';
+    }
+
+    function directPrintDocument(num) {
+      const doc = documents.find(d => d.number === num);
+      if (!doc) {
+        alert('Document not found!');
+        return;
+      }
+      populatePrintTemplates(doc);
+      window.print();
+      cleanupPrintTemplates();
+    }
+
+    function downloadAllInvoicesInCycle() {
+      const targetCycle = selectedCycle === 'ALL' ? calculateCycle(new Date()) : selectedCycle;
+      const cycleInvoices = documents.filter(d => (d.type || 'INVOICE') === 'INVOICE' && ((d.cycle === targetCycle) || (!d.cycle && calculateCycle(d.date) === targetCycle)));
+
+      if (cycleInvoices.length === 0) {
+        alert(`No invoices found in cycle ${targetCycle}!`);
+        return;
+      }
+
+      cycleInvoices.sort((a, b) => {
+        const numA = parseInt(a.number, 10) || 0;
+        const numB = parseInt(b.number, 10) || 0;
+        return numA - numB;
+      });
+
+      const invWrapper = document.getElementById('printableInvoiceWrapper');
+      const quoteWrapper = document.getElementById('printableQuotationWrapper');
+      invWrapper.classList.add('hidden');
+      quoteWrapper.classList.add('hidden');
+      
+      const batchArea = document.getElementById('batchPrintArea');
+      batchArea.innerHTML = '';
+      batchArea.classList.remove('hidden');
+      batchArea.classList.add('print-visible');
+
+      cycleInvoices.forEach((doc, idx) => {
+        populatePrintTemplates(doc);
+        const clone = invWrapper.cloneNode(true);
+        clone.classList.remove('hidden');
+        clone.classList.add('print-visible');
+        if (idx < cycleInvoices.length - 1) {
+          clone.classList.add('page-break');
+        }
+        batchArea.appendChild(clone);
+      });
+
+      window.print();
+      cleanupPrintTemplates();
+    }
+
+    function downloadBackup() {
+      const backupData = {
+        version: '2.0',
+        exportDate: new Date().toISOString(),
+        profile: profile,
+        customers: customers,
+        documents: documents,
+        payments: payments,
+        userCycles: userCycles
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `VSG_Billing_Backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function restoreBackup(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          if (parsed.profile && parsed.documents && parsed.customers) {
+            if (confirm("Restoring this backup will replace all current records across Cloud and Local. Continue?")) {
+              profile = parsed.profile;
+              documents = parsed.documents;
+              customers = parsed.customers;
+              payments = parsed.payments || [];
+              userCycles = parsed.userCycles || [];
+
+              if (isCloudActive) {
+                db.collection("settings").doc("profile").set(profile);
+                customers.forEach(c => db.collection("customers").doc(String(c.id)).set(c));
+                documents.forEach(d => db.collection("documents").doc(d.number).set(d));
+                payments.forEach(p => db.collection("payments").doc(String(p.id)).set(p));
+              }
+
+              localStorage.setItem('vsg_company_profile', JSON.stringify(profile));
+              localStorage.setItem('vsg_documents', JSON.stringify(documents));
+              localStorage.setItem('vsg_customers', JSON.stringify(customers));
+              localStorage.setItem('vsg_payments', JSON.stringify(payments));
+              localStorage.setItem('vsg_user_cycles', JSON.stringify(userCycles));
+
+              loadProfileToUI();
+              populateCycleDropdown();
+              renderCustomers();
+              populatePaymentCustomerFilter();
+              populatePaymentCycleFilter();
+              renderHistory();
+              renderPaymentLedger();
+              setNextDocumentNumber();
+              alert("Data restored and synced to cloud successfully!");
+            }
+          } else {
+            alert("Invalid backup file format!");
+          }
+        } catch (err) {
+          alert("Error reading backup file!");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function filterHistory(type) {
+      historyFilter = type;
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const tbody = document.getElementById('historyTableBody');
+      tbody.innerHTML = '';
+
+      let filtered = [...documents];
+      
+      if (selectedCycle !== 'ALL') {
+        filtered = filtered.filter(d => {
+          if ((d.type || 'INVOICE') === 'QUOTATION') return true;
+          return (d.cycle === selectedCycle) || (!d.cycle && calculateCycle(d.date) === selectedCycle);
+        });
+      }
+
+      if (historyFilter !== 'ALL') {
+        filtered = filtered.filter(d => (d.type || 'INVOICE') === historyFilter);
+      }
+
+      filtered.sort((a, b) => {
+        const numA = parseInt((a.number || '').replace('QT-', ''), 10) || 0;
+        const numB = parseInt((b.number || '').replace('QT-', ''), 10) || 0;
+        return numA - numB;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="py-6 text-center text-slate-400 font-medium">No documents found.</td></tr>`;
+        return;
+      }
+
+      filtered.forEach((doc, index) => {
+        const isQuote = (doc.type || 'INVOICE') === 'QUOTATION';
+        const docCycle = isQuote ? '-' : (doc.cycle || calculateCycle(doc.date));
+        
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b';
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 text-center text-slate-400 font-bold">${index + 1}</td>
+          <td class="py-2.5 px-3">
+            <span class="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold tracking-wide ${isQuote ? 'bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}">
+              ${isQuote ? 'QUOTATION' : 'INVOICE'}
+            </span>
+          </td>
+          <td class="py-2.5 px-3 font-mono font-bold ${isQuote ? 'text-fuchsia-700' : 'text-emerald-700'}">${doc.number}</td>
+          <td class="py-2.5 px-3 font-mono text-[11px] text-slate-600 font-semibold">${docCycle}</td>
+          <td class="py-2.5 px-3 text-slate-600 font-mono">${formatDisplayDate(doc.date)}</td>
+          <td class="py-2.5 px-3 font-medium text-slate-800">${doc.customer}</td>
+          <td class="py-2.5 px-3 font-mono text-slate-600">${doc.gstin || '-'}</td>
+          <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900">₹${doc.total.toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-center space-x-2">
+            <button onclick="directPrintDocument('${doc.number}')" title="Download / Print Single Document" class="p-1 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-lg font-bold text-xs transition">⬇ Download</button>
+            <button onclick="viewDocument('${doc.number}')" class="text-blue-600 font-bold hover:underline">View</button>
+            <button onclick="editDocument('${doc.number}')" class="text-amber-600 font-bold hover:underline">Edit</button>
+            <button onclick="deleteDocument('${doc.number}')" class="text-rose-600 font-bold hover:underline">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ==========================================
+    // 3. TAB 5: RUNNING BALANCE & CYCLE FILTERING
+    // ==========================================
+    function populatePaymentCustomerFilter() {
+      const select = document.getElementById('paymentCustFilter');
+      if (!select) return;
+
+      const custSet = new Set();
+      customers.forEach(c => { if (c.name) custSet.add(c.name.trim()); });
+      documents.filter(d => (d.type || 'INVOICE') === 'INVOICE').forEach(d => {
+        if (d.customer) custSet.add(d.customer.trim());
+      });
+
+      const currentVal = paymentSelectedCustomer;
+      const sortedCustomers = Array.from(custSet).sort();
+
+      select.innerHTML = '<option value="ALL">All Customers</option>';
+
+      sortedCustomers.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        if (name === currentVal) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      if (paymentSelectedCustomer !== 'ALL' && !sortedCustomers.includes(paymentSelectedCustomer)) {
+        paymentSelectedCustomer = 'ALL';
+        select.value = 'ALL';
+      }
+    }
+
+    function populatePaymentCycleFilter() {
+      const payCycleSelect = document.getElementById('paymentCycleFilter');
+      if (!payCycleSelect) return;
+
+      const cycleSet = new Set();
+      cycleSet.add(calculateCycle(new Date()));
+      userCycles.forEach(c => cycleSet.add(c));
+      documents.forEach(d => {
+        if (d.cycle) cycleSet.add(d.cycle);
+        else if (d.date) cycleSet.add(calculateCycle(d.date));
+      });
+
+      const sortedCycles = Array.from(cycleSet).sort().reverse();
+      payCycleSelect.innerHTML = '<option value="ALL">All Cycles</option>';
+
+      sortedCycles.forEach(cycle => {
+        const opt = document.createElement('option');
+        opt.value = cycle;
+        opt.textContent = cycle;
+        if (cycle === paymentSelectedCycle) opt.selected = true;
+        payCycleSelect.appendChild(opt);
+      });
+    }
+
+    function onPaymentCustomerChange() {
+      paymentSelectedCustomer = document.getElementById('paymentCustFilter').value;
+      renderPaymentLedger();
+    }
+
+    function onPaymentCycleChange() {
+      paymentSelectedCycle = document.getElementById('paymentCycleFilter').value;
+      renderPaymentLedger();
+    }
+
+    function selectSpecificCustomerInPayment(custName) {
+      paymentSelectedCustomer = custName;
+      document.getElementById('paymentCustFilter').value = custName;
+      renderPaymentLedger();
+    }
+
+    function handleRecordPayment(e) {
+      e.preventDefault();
+      const customer = paymentSelectedCustomer;
+      const date = document.getElementById('payEntryDate').value;
+      const amount = parseFloat(document.getElementById('payEntryAmount').value) || 0;
+      const mode = document.getElementById('payEntryMode').value;
+      const ref = document.getElementById('payEntryRef').value.trim();
+
+      if (!customer || customer === 'ALL' || amount <= 0) {
+        alert("Please select a specific customer and enter valid amount!");
+        return;
+      }
+
+      const newPayment = {
+        id: Date.now(),
+        customer: customer,
+        cycle: calculateCycle(date),
+        date: date,
+        amount: amount,
+        mode: mode,
+        ref: ref
+      };
+
+      if (isCloudActive) {
+        db.collection("payments").doc(String(newPayment.id)).set(newPayment);
+      }
+
+      payments.push(newPayment);
+      localStorage.setItem('vsg_payments', JSON.stringify(payments));
+
+      document.getElementById('payEntryAmount').value = '';
+      document.getElementById('payEntryRef').value = '';
+      renderPaymentLedger();
+    }
+
+    function deletePaymentRecord(id) {
+      if (confirm("Delete this payment record? This will adjust the balance back.")) {
+        if (isCloudActive) {
+          db.collection("payments").doc(String(id)).delete();
+        }
+        payments = payments.filter(p => p.id !== id);
+        localStorage.setItem('vsg_payments', JSON.stringify(payments));
+        renderPaymentLedger();
+      }
+    }
+
+    function renderPaymentLedger() {
+      const allBox = document.getElementById('allCustomersSummaryBox');
+      const indBox = document.getElementById('individualStatementBox');
+      const payRecordBox = document.getElementById('paymentRecordBox');
+      const allTbody = document.getElementById('allCustomersTableBody');
+      const indTbody = document.getElementById('individualStatementTableBody');
+
+      let invoicesOnly = documents.filter(d => (d.type || 'INVOICE') === 'INVOICE');
+      let paymentsList = [...payments];
+
+      // Apply Year-to-Year Cycle Filter
+      if (paymentSelectedCycle !== 'ALL') {
+        invoicesOnly = invoicesOnly.filter(d => (d.cycle === paymentSelectedCycle) || (!d.cycle && calculateCycle(d.date) === paymentSelectedCycle));
+        paymentsList = paymentsList.filter(p => (p.cycle === paymentSelectedCycle) || (!p.cycle && calculateCycle(p.date) === paymentSelectedCycle));
+      }
+
+      // Grand Totals Calculation
+      let totalBilledAll = 0;
+      let totalPaidAll = 0;
+
+      invoicesOnly.forEach(d => { totalBilledAll += (d.total || 0); });
+      paymentsList.forEach(p => { totalPaidAll += (p.amount || 0); });
+      let totalBalanceAll = totalBilledAll - totalPaidAll;
+
+      // MODE A: ALL CUSTOMERS VIEW
+      if (paymentSelectedCustomer === 'ALL') {
+        allBox.classList.remove('hidden');
+        indBox.classList.add('hidden');
+        payRecordBox.classList.add('hidden');
+
+        const cycleSuffix = paymentSelectedCycle === 'ALL' ? '' : ` [${paymentSelectedCycle}]`;
+        document.getElementById('statLabelTotal').textContent = `Total Billed (All Customers)${cycleSuffix}`;
+        document.getElementById('statLabelPaid').textContent = `Total Received (All Customers)${cycleSuffix}`;
+        document.getElementById('statLabelBalance').textContent = `Total Balance (All Customers)${cycleSuffix}`;
+
+        document.getElementById('auditTotalBilled').textContent = `₹${totalBilledAll.toFixed(2)}`;
+        document.getElementById('auditTotalPaid').textContent = `₹${totalPaidAll.toFixed(2)}`;
+        document.getElementById('auditTotalPending').textContent = `₹${totalBalanceAll.toFixed(2)}`;
+
+        const customerStats = {};
+        customers.forEach(c => {
+          if (c.name) customerStats[c.name.trim()] = { billed: 0, paid: 0, balance: 0 };
+        });
+
+        invoicesOnly.forEach(d => {
+          const name = (d.customer || '').trim();
+          if (!customerStats[name]) customerStats[name] = { billed: 0, paid: 0, balance: 0 };
+          customerStats[name].billed += (d.total || 0);
+        });
+
+        paymentsList.forEach(p => {
+          const name = (p.customer || '').trim();
+          if (!customerStats[name]) customerStats[name] = { billed: 0, paid: 0, balance: 0 };
+          customerStats[name].paid += (p.amount || 0);
+        });
+
+        allTbody.innerHTML = '';
+        const names = Object.keys(customerStats).sort();
+
+        if (names.length === 0) {
+          allTbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-400 font-medium">No customer billing records available for selected cycle.</td></tr>`;
+          return;
+        }
+
+        names.forEach((name, idx) => {
+          const stat = customerStats[name];
+          stat.balance = stat.billed - stat.paid;
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition border-b';
+          tr.innerHTML = `
+            <td class="py-3 px-3 text-center text-slate-400 font-bold">${idx + 1}</td>
+            <td class="py-3 px-4 font-bold text-slate-900">${name}</td>
+            <td class="py-3 px-3 text-right font-mono font-bold text-slate-900">₹${stat.billed.toFixed(2)}</td>
+            <td class="py-3 px-3 text-right font-mono font-bold text-emerald-700">₹${stat.paid.toFixed(2)}</td>
+            <td class="py-3 px-3 text-right font-mono font-black ${stat.balance > 0 ? 'text-amber-700' : 'text-slate-700'}">₹${stat.balance.toFixed(2)}</td>
+            <td class="py-3 px-3 text-center">
+              <button onclick="selectSpecificCustomerInPayment('${name}')" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-md font-bold text-xs transition">
+                View Ledger &rarr;
+              </button>
+            </td>
+          `;
+          allTbody.appendChild(tr);
+        });
+
+      } else {
+        // MODE B: INDIVIDUAL CUSTOMER VIEW
+        allBox.classList.add('hidden');
+        indBox.classList.remove('hidden');
+        payRecordBox.classList.remove('hidden');
+
+        document.getElementById('payEntryCustomerNameLabel').textContent = paymentSelectedCustomer;
+        document.getElementById('individualStatementHeading').textContent = `Customer Statement: ${paymentSelectedCustomer}`;
+
+        const custInvoices = invoicesOnly.filter(d => (d.customer || '').trim() === paymentSelectedCustomer);
+        const custPayments = paymentsList.filter(p => (p.customer || '').trim() === paymentSelectedCustomer);
+
+        let custTotalBilled = 0;
+        let custTotalPaid = 0;
+
+        custInvoices.forEach(d => { custTotalBilled += (d.total || 0); });
+        custPayments.forEach(p => { custTotalPaid += (p.amount || 0); });
+        let custBalance = custTotalBilled - custTotalPaid;
+
+        const cycleSuffix = paymentSelectedCycle === 'ALL' ? '' : ` [${paymentSelectedCycle}]`;
+        document.getElementById('statLabelTotal').textContent = `Total Billed (${paymentSelectedCustomer})${cycleSuffix}`;
+        document.getElementById('statLabelPaid').textContent = `Total Received (${paymentSelectedCustomer})${cycleSuffix}`;
+        document.getElementById('statLabelBalance').textContent = `Current Balance (${paymentSelectedCustomer})${cycleSuffix}`;
+
+        document.getElementById('auditTotalBilled').textContent = `₹${custTotalBilled.toFixed(2)}`;
+        document.getElementById('auditTotalPaid').textContent = `₹${custTotalPaid.toFixed(2)}`;
+        document.getElementById('auditTotalPending').textContent = `₹${custBalance.toFixed(2)}`;
+
+        const timeline = [];
+
+        custInvoices.forEach(inv => {
+          timeline.push({
+            date: inv.date,
+            type: 'INVOICE',
+            invNum: inv.number,
+            desc: `Tax Invoice #${inv.number}`,
+            billed: inv.total || 0,
+            paid: 0,
+            rawItem: inv
+          });
+        });
+
+        custPayments.forEach(pay => {
+          timeline.push({
+            date: pay.date,
+            type: 'PAYMENT',
+            invNum: '-',
+            desc: `Payment Received [${pay.mode}] ${pay.ref ? '- ' + pay.ref : ''}`,
+            billed: 0,
+            paid: pay.amount || 0,
+            rawItem: pay
+          });
+        });
+
+        timeline.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        indTbody.innerHTML = '';
+        if (timeline.length === 0) {
+          indTbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400 font-medium">No transactions recorded for ${paymentSelectedCustomer} in selected cycle.</td></tr>`;
+          return;
+        }
+
+        let runningBal = 0;
+        timeline.forEach((item, idx) => {
+          runningBal += (item.billed - item.paid);
+          const isInv = item.type === 'INVOICE';
+
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition border-b';
+          tr.innerHTML = `
+            <td class="py-3 px-3 text-center text-slate-400 font-bold">${idx + 1}</td>
+            <td class="py-3 px-3 font-mono font-medium text-slate-700">${formatDisplayDate(item.date)}</td>
+            <td class="py-3 px-3 font-mono font-bold ${isInv ? 'text-blue-700' : 'text-slate-400'}">${item.invNum}</td>
+            <td class="py-3 px-4 text-slate-700 font-medium">${item.desc}</td>
+            <td class="py-3 px-3 text-right font-mono font-bold text-slate-900">${item.billed > 0 ? '₹' + item.billed.toFixed(2) : '-'}</td>
+            <td class="py-3 px-3 text-right font-mono font-bold text-emerald-700">${item.paid > 0 ? '₹' + item.paid.toFixed(2) : '-'}</td>
+            <td class="py-3 px-3 text-right font-mono font-black text-blue-950">₹${runningBal.toFixed(2)}</td>
+            <td class="py-3 px-3 text-center">
+              ${isInv ? `<button onclick="directPrintDocument('${item.rawItem.number}')" class="text-blue-600 font-bold hover:underline">View Bill</button>` : `<button onclick="deletePaymentRecord(${item.rawItem.id})" class="text-rose-600 font-bold hover:underline">Delete</button>`}
+            </td>
+          `;
+          indTbody.appendChild(tr);
+        });
+      }
+    }
+
+    // ==========================================
+    // 4. PRINT / PDF OFFICIAL STATEMENT
+    // ==========================================
+    function printPaymentLedgerStatement() {
+      const stmtWrapper = document.getElementById('printablePaymentStatementWrapper');
+      const invWrapper = document.getElementById('printableInvoiceWrapper');
+      const quoteWrapper = document.getElementById('printableQuotationWrapper');
+      const batchArea = document.getElementById('batchPrintArea');
+
+      invWrapper.classList.add('hidden');
+      quoteWrapper.classList.add('hidden');
+      batchArea.classList.add('hidden');
+
+      stmtWrapper.classList.remove('hidden');
+      stmtWrapper.classList.add('print-visible');
+
+      document.getElementById('stmtPrintCompName').textContent = profile.name;
+      document.getElementById('stmtPrintContact').textContent = `Ph: ${profile.contact} | GSTIN: ${profile.gstin}`;
+      document.getElementById('stmtPrintAddress').textContent = `${profile.address1} ${profile.address2}`;
+      
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, '0');
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      document.getElementById('stmtGeneratedDate').textContent = `${dd}-${mm}-${yyyy}`;
+      document.getElementById('stmtPrintSignComp').textContent = `For ${profile.name.toUpperCase()}`;
+
+      const tHead = document.getElementById('stmtTableHead');
+      const tBody = document.getElementById('stmtTableBody');
+      tHead.innerHTML = '';
+      tBody.innerHTML = '';
+
+      let invoicesOnly = documents.filter(d => (d.type || 'INVOICE') === 'INVOICE');
+      let paymentsList = [...payments];
+
+      if (paymentSelectedCycle !== 'ALL') {
+        invoicesOnly = invoicesOnly.filter(d => (d.cycle === paymentSelectedCycle) || (!d.cycle && calculateCycle(d.date) === paymentSelectedCycle));
+        paymentsList = paymentsList.filter(p => (p.cycle === paymentSelectedCycle) || (!p.cycle && calculateCycle(p.date) === paymentSelectedCycle));
+      }
+
+      // PRINT MODE A: ALL CUSTOMERS
+      if (paymentSelectedCustomer === 'ALL') {
+        document.getElementById('stmtReportTitle').textContent = "ALL CUSTOMERS OUTSTANDING & PAYMENT AUDIT SUMMARY";
+        document.getElementById('stmtCustomerName').textContent = `ALL ACTIVE CLIENTS ${paymentSelectedCycle !== 'ALL' ? '(' + paymentSelectedCycle + ')' : ''}`;
+
+        tHead.innerHTML = `
+          <tr class="bg-slate-100 text-center font-bold border-b border-black">
+            <th class="py-2 px-2 border-r border-black w-10">SL</th>
+            <th class="py-2 px-4 border-r border-black text-left">Customer / Company Name</th>
+            <th class="py-2 px-3 border-r border-black text-right">Total Billed (₹)</th>
+            <th class="py-2 px-3 border-r border-black text-right">Total Received (₹)</th>
+            <th class="py-2 px-3 text-right">Balance Outstanding (₹)</th>
+          </tr>
+        `;
+
+        const customerStats = {};
+        invoicesOnly.forEach(d => {
+          const name = (d.customer || '').trim();
+          if (!customerStats[name]) customerStats[name] = { billed: 0, paid: 0, balance: 0 };
+          customerStats[name].billed += (d.total || 0);
+        });
+
+        paymentsList.forEach(p => {
+          const name = (p.customer || '').trim();
+          if (!customerStats[name]) customerStats[name] = { billed: 0, paid: 0, balance: 0 };
+          customerStats[name].paid += (p.amount || 0);
+        });
+
+        let totalBilled = 0;
+        let totalPaid = 0;
+        let idx = 1;
+
+        Object.keys(customerStats).sort().forEach(name => {
+          const stat = customerStats[name];
+          stat.balance = stat.billed - stat.paid;
+          totalBilled += stat.billed;
+          totalPaid += stat.paid;
+
+          const tr = document.createElement('tr');
+          tr.className = 'border-b border-black text-center';
+          tr.innerHTML = `
+            <td class="py-1.5 px-2 border-r border-black">${idx++}</td>
+            <td class="py-1.5 px-4 border-r border-black text-left font-bold">${name}</td>
+            <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">${stat.billed.toFixed(2)}</td>
+            <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">${stat.paid.toFixed(2)}</td>
+            <td class="py-1.5 px-3 text-right font-mono font-black">${stat.balance.toFixed(2)}</td>
+          `;
+          tBody.appendChild(tr);
+        });
+
+        document.getElementById('stmtSumBilled').textContent = `₹${totalBilled.toFixed(2)}`;
+        document.getElementById('stmtSumPaid').textContent = `₹${totalPaid.toFixed(2)}`;
+        document.getElementById('stmtSumBalance').textContent = `₹${(totalBilled - totalPaid).toFixed(2)}`;
+
+      } else {
+        // PRINT MODE B: INDIVIDUAL CUSTOMER
+        document.getElementById('stmtReportTitle').textContent = "CUSTOMER ACCOUNT STATEMENT & RUNNING BALANCE";
+        document.getElementById('stmtCustomerName').textContent = `${paymentSelectedCustomer} ${paymentSelectedCycle !== 'ALL' ? '(' + paymentSelectedCycle + ')' : ''}`;
+
+        tHead.innerHTML = `
+          <tr class="bg-slate-100 text-center font-bold border-b border-black">
+            <th class="py-2 px-2 border-r border-black w-10">SL</th>
+            <th class="py-2 px-2 border-r border-black w-24">Date</th>
+            <th class="py-2 px-2 border-r border-black w-20">Invoice #</th>
+            <th class="py-2 px-3 border-r border-black text-left">Payment Mode / Remarks</th>
+            <th class="py-2 px-3 border-r border-black text-right">Billed</th>
+            <th class="py-2 px-3 border-r border-black text-right">Paid</th>
+            <th class="py-2 px-3 text-right">Balance Due (₹)</th>
+          </tr>
+        `;
+
+        const custInvoices = invoicesOnly.filter(d => (d.customer || '').trim() === paymentSelectedCustomer);
+        const custPayments = paymentsList.filter(p => (p.customer || '').trim() === paymentSelectedCustomer);
+
+        const timeline = [];
+        custInvoices.forEach(inv => {
+          timeline.push({ date: inv.date, invNum: inv.number, desc: `Tax Invoice #${inv.number}`, billed: inv.total || 0, paid: 0 });
+        });
+        custPayments.forEach(pay => {
+          timeline.push({ date: pay.date, invNum: '-', desc: `Payment [${pay.mode}] ${pay.ref ? pay.ref : ''}`, billed: 0, paid: pay.amount || 0 });
+        });
+
+        timeline.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        let runningBal = 0;
+        let totalBilled = 0;
+        let totalPaid = 0;
+        let idx = 1;
+
+        timeline.forEach(item => {
+          runningBal += (item.billed - item.paid);
+          totalBilled += item.billed;
+          totalPaid += item.paid;
+
+          const tr = document.createElement('tr');
+          tr.className = 'border-b border-black text-center';
+          tr.innerHTML = `
+            <td class="py-1.5 px-2 border-r border-black">${idx++}</td>
+            <td class="py-1.5 px-2 border-r border-black font-mono">${formatDisplayDate(item.date)}</td>
+            <td class="py-1.5 px-2 border-r border-black font-mono font-bold">${item.invNum}</td>
+            <td class="py-1.5 px-3 border-r border-black text-left font-semibold">${item.desc}</td>
+            <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">${item.billed > 0 ? item.billed.toFixed(2) : '-'}</td>
+            <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">${item.paid > 0 ? item.paid.toFixed(2) : '-'}</td>
+            <td class="py-1.5 px-3 text-right font-mono font-black">${runningBal.toFixed(2)}</td>
+          `;
+          tBody.appendChild(tr);
+        });
+
+        document.getElementById('stmtSumBilled').textContent = `₹${totalBilled.toFixed(2)}`;
+        document.getElementById('stmtSumPaid').textContent = `₹${totalPaid.toFixed(2)}`;
+        document.getElementById('stmtSumBalance').textContent = `₹${(totalBilled - totalPaid).toFixed(2)}`;
+      }
+
+      window.print();
+      cleanupPrintTemplates();
+    }
+
+    function viewDocument(num) {
+      editDocument(num);
+    }
+
+    function editDocument(num) {
+      const doc = documents.find(d => d.number === num);
+      if (!doc) return;
+
+      editingDocNumber = doc.number;
+      setDocumentType(doc.type || 'INVOICE');
+
+      document.getElementById('editingBadge').classList.remove('hidden');
+      document.getElementById('cancelEditBtn').classList.remove('hidden');
+
+      document.getElementById('invNumber').value = doc.number;
+      document.getElementById('invDate').value = doc.date;
+      document.getElementById('invVehicle').value = doc.vehicle || '';
+      document.getElementById('invHSN').value = doc.hsn || '';
+      document.getElementById('invCustName').value = doc.customer;
+      document.getElementById('invGSTIN').value = doc.gstin || '';
+      document.getElementById('invPhone').value = doc.phone || '';
+      document.getElementById('invAddress').value = doc.address || '';
+      
+      if (doc.cycle) {
+        activeInvoiceCycle = doc.cycle;
+        populateCycleDropdown();
+        populatePaymentCycleFilter();
+      }
+
+      if (doc.discount && doc.discount > 0) {
+        isDiscountActive = true;
+        document.getElementById('discountRow').classList.remove('hidden');
+        document.getElementById('taxableAmountRow').classList.remove('hidden');
+        document.getElementById('btnToggleDiscount').classList.add('hidden');
+        document.getElementById('invDiscountInput').value = doc.discount;
+      } else {
+        removeDiscount();
+      }
+
+      if (doc.type === 'QUOTATION') {
+        document.getElementById('quoteSubject').value = doc.quoteSubject || 'Quotation For Grill work - Reg';
+        document.getElementById('quoteBodyText').value = doc.quoteBody || '';
+        document.getElementById('quoteAdvance').value = doc.quoteAdvance || 'Advance 60% from the date of PO';
+        document.getElementById('quoteValidity').value = doc.quoteValidity || 'Quotation Rates valid 15 days only';
+        document.getElementById('quoteGSTTerms').value = doc.quoteGSTTerms || 'GST 18% extra';
+      }
+
+      document.getElementById('lineItemsBody').innerHTML = '';
+      if (doc.items && doc.items.length > 0) {
+        doc.items.forEach(item => addLineItem(item.desc, item.qty, item.unit || 'Nos', item.rate));
+      } else {
+        addLineItem();
+      }
+
+      calculateTotals();
+      switchTab('invoice');
+    }
+
+    function deleteDocument(num) {
+      if (confirm(`Are you sure you want to permanently delete document #${num}?`)) {
+        if (isCloudActive) {
+          db.collection("documents").doc(num).delete();
+        }
+        documents = documents.filter(d => d.number !== num);
+        localStorage.setItem('vsg_documents', JSON.stringify(documents));
+        renderHistory();
+        populatePaymentCustomerFilter();
+        populatePaymentCycleFilter();
+        renderPaymentLedger();
+        setNextDocumentNumber();
+      }
+    }
+
+    function cancelEditing() {
+      resetInvoiceForm();
+    }
+
+    function loadProfileToUI() {
+      document.getElementById('profCompName').value = profile.name;
+      document.getElementById('profAddress1').value = profile.address1;
+      document.getElementById('profAddress2').value = profile.address2;
+      document.getElementById('profContact').value = profile.contact;
+      document.getElementById('profGSTIN').value = profile.gstin;
+      document.getElementById('profBankName').value = profile.bankName;
+      document.getElementById('profBankAcc').value = profile.bankAcc;
+      document.getElementById('profBankIFSC').value = profile.bankIFSC;
+      document.getElementById('profBankBranch').value = profile.bankBranch;
+
+      document.getElementById('loginBrandTitle').textContent = profile.name;
+      document.getElementById('navBrandTitle').textContent = profile.name.toUpperCase();
+      document.getElementById('navBrandSub').textContent = `GST: ${profile.gstin} | ${profile.address2.split(',').pop() || ''}`;
+
+      document.getElementById('printCompanyName').textContent = profile.name;
+      document.getElementById('printCompanyAddress1').textContent = profile.address1;
+      document.getElementById('printCompanyAddress2').textContent = profile.address2;
+      document.getElementById('printCompanyContact').textContent = profile.contact;
+      document.getElementById('printCompanyGST').textContent = profile.gstin;
+
+      document.getElementById('printBankHeading').textContent = profile.name;
+      document.getElementById('printBankName').textContent = `Bank Name : ${profile.bankName}`;
+      document.getElementById('printBankAcc').textContent = `ACC No: ${profile.bankAcc}`;
+      document.getElementById('printBankIFSC').textContent = `IFSC Code: ${profile.bankIFSC}`;
+      document.getElementById('printBankBranch').textContent = `Branch : ${profile.bankBranch}`;
+      document.getElementById('printSignatureHeading').textContent = `For ${profile.name}`;
+
+      renderProfileImages();
+    }
+
+    function previewProfileLogo(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          profile.logo = evt.target.result;
+          renderProfileImages();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function previewProfileEmblem(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          profile.emblem = evt.target.result;
+          renderProfileImages();
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function renderProfileImages() {
+      const logoPreview = document.getElementById('profileLogoPreview');
+      const printLogo = document.getElementById('printLogoLeft');
+      const quoteLogo = document.getElementById('quotePrintLogoLeft');
+      const stmtLogo = document.getElementById('stmtPrintLogo');
+      const logoPlaceholder = document.getElementById('logoLeftPlaceholder');
+      const quoteLogoPlaceholder = document.getElementById('quoteLogoLeftPlaceholder');
+      const stmtLogoPlaceholder = document.getElementById('stmtLogoPlaceholder');
+      const navLogoImg = document.getElementById('navLogoImg');
+      const navLogoPlaceholder = document.getElementById('navLogoPlaceholder');
+
+      if (profile.logo) {
+        logoPreview.innerHTML = `<img src="${profile.logo}" class="max-h-full max-w-full object-contain">`;
+        printLogo.src = profile.logo;
+        quoteLogo.src = profile.logo;
+        stmtLogo.src = profile.logo;
+        printLogo.classList.remove('hidden');
+        quoteLogo.classList.remove('hidden');
+        stmtLogo.classList.remove('hidden');
+        if (logoPlaceholder) logoPlaceholder.classList.add('hidden');
+        if (quoteLogoPlaceholder) quoteLogoPlaceholder.classList.add('hidden');
+        if (stmtLogoPlaceholder) stmtLogoPlaceholder.classList.add('hidden');
+
+        if (navLogoImg && navLogoPlaceholder) {
+          navLogoImg.src = profile.logo;
+          navLogoImg.classList.remove('hidden');
+          navLogoPlaceholder.classList.add('hidden');
+        }
+      } else {
+        logoPreview.innerHTML = `<span class="text-[10px] text-slate-400">No Logo</span>`;
+        printLogo.src = '';
+        quoteLogo.src = '';
+        stmtLogo.src = '';
+        printLogo.classList.add('hidden');
+        quoteLogo.classList.add('hidden');
+        stmtLogo.classList.add('hidden');
+        if (logoPlaceholder) logoPlaceholder.classList.remove('hidden');
+        if (quoteLogoPlaceholder) quoteLogoPlaceholder.classList.remove('hidden');
+        if (stmtLogoPlaceholder) stmtLogoPlaceholder.classList.remove('hidden');
+
+        if (navLogoImg && navLogoPlaceholder) {
+          navLogoImg.src = '';
+          navLogoImg.classList.add('hidden');
+          navLogoPlaceholder.classList.remove('hidden');
+        }
+      }
+
+      const emblemPreview = document.getElementById('profileEmblemPreview');
+      const printEmblem = document.getElementById('printLogoRight');
+      const quoteEmblem = document.getElementById('quotePrintLogoRight');
+      const emblemPlaceholder = document.getElementById('logoRightPlaceholder');
+      const quoteEmblemPlaceholder = document.getElementById('quoteLogoRightPlaceholder');
+
+      if (profile.emblem) {
+        emblemPreview.innerHTML = `<img src="${profile.emblem}" class="max-h-full max-w-full object-contain">`;
+        printEmblem.src = profile.emblem;
+        quoteEmblem.src = profile.emblem;
+        printEmblem.classList.remove('hidden');
+        quoteEmblem.classList.remove('hidden');
+        if (emblemPlaceholder) emblemPlaceholder.classList.add('hidden');
+        if (quoteEmblemPlaceholder) quoteEmblemPlaceholder.classList.add('hidden');
+      } else {
+        emblemPreview.innerHTML = `<span class="text-[10px] text-slate-400">No Emblem</span>`;
+        printEmblem.src = '';
+        quoteEmblem.src = '';
+        printEmblem.classList.add('hidden');
+        quoteEmblem.classList.add('hidden');
+        if (emblemPlaceholder) emblemPlaceholder.classList.remove('hidden');
+        if (quoteEmblemPlaceholder) quoteEmblemPlaceholder.classList.remove('hidden');
+      }
+    }
+
+    function saveProfileData() {
+      profile.name = document.getElementById('profCompName').value.trim() || 'VSG Industries';
+      profile.address1 = document.getElementById('profAddress1').value.trim();
+      profile.address2 = document.getElementById('profAddress2').value.trim();
+      profile.contact = document.getElementById('profContact').value.trim();
+      profile.gstin = document.getElementById('profGSTIN').value.trim();
+      profile.bankName = document.getElementById('profBankName').value.trim();
+      profile.bankAcc = document.getElementById('profBankAcc').value.trim();
+      profile.bankIFSC = document.getElementById('profBankIFSC').value.trim();
+      profile.bankBranch = document.getElementById('profBankBranch').value.trim();
+
+      if (isCloudActive) {
+        db.collection("settings").doc("profile").set(profile);
+      }
+
+      localStorage.setItem('vsg_company_profile', JSON.stringify(profile));
+      loadProfileToUI();
+      alert('Company Profile saved and synced to Cloud!');
+      switchTab('invoice');
+    }
+
+    // ==========================================
+    // 5. CUSTOMER MANAGEMENT (ADD, EDIT, DELETE)
+    // ==========================================
+    function saveCustomer(e) {
+      e.preventDefault();
+      const custData = {
+        id: editingCustomerId ? editingCustomerId : Date.now(),
+        name: document.getElementById('custName').value.trim(),
+        keyword: document.getElementById('custKeyword').value.trim(),
+        gstin: document.getElementById('custGSTIN').value.trim(),
+        phone: document.getElementById('custPhone').value.trim(),
+        address: document.getElementById('custAddress').value.trim()
+      };
+
+      if (isCloudActive) {
+        db.collection("customers").doc(String(custData.id)).set(custData);
+      }
+
+      if (editingCustomerId) {
+        const index = customers.findIndex(c => c.id === editingCustomerId);
+        if (index !== -1) customers[index] = custData;
+      } else {
+        customers.push(custData);
+      }
+
+      localStorage.setItem('vsg_customers', JSON.stringify(customers));
+      cancelCustomerEdit();
+      renderCustomers();
+      populatePaymentCustomerFilter();
+    }
+
+    function editCustomer(id) {
+      const customer = customers.find(c => c.id === id);
+      if (!customer) return;
+
+      editingCustomerId = id;
+      document.getElementById('custName').value = customer.name;
+      document.getElementById('custKeyword').value = customer.keyword || '';
+      document.getElementById('custGSTIN').value = customer.gstin || '';
+      document.getElementById('custPhone').value = customer.phone || '';
+      document.getElementById('custAddress').value = customer.address || '';
+
+      document.getElementById('custEditBadge').classList.remove('hidden');
+      document.getElementById('custCancelEditBtn').classList.remove('hidden');
+      const submitBtn = document.getElementById('custSubmitBtn');
+      submitBtn.textContent = '🔄 Update Customer';
+      submitBtn.className = 'w-full bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs py-2.5 rounded-md transition shadow-sm';
+
+      document.getElementById('customerForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function cancelCustomerEdit() {
+      editingCustomerId = null;
+      document.getElementById('customerForm').reset();
+      document.getElementById('custEditBadge').classList.add('hidden');
+      document.getElementById('custCancelEditBtn').classList.add('hidden');
+      const submitBtn = document.getElementById('custSubmitBtn');
+      submitBtn.textContent = '+ Save Customer';
+      submitBtn.className = 'w-full bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs py-2.5 rounded-md transition shadow-sm';
+    }
+
+    function deleteCustomer(id) {
+      if (confirm("Are you sure you want to delete this customer?")) {
+        if (isCloudActive) {
+          db.collection("customers").doc(String(id)).delete();
+        }
+        customers = customers.filter(c => c.id !== id);
+        localStorage.setItem('vsg_customers', JSON.stringify(customers));
+        if (editingCustomerId === id) cancelCustomerEdit();
+        renderCustomers();
+        populatePaymentCustomerFilter();
+      }
+    }
+
+    function renderCustomers() {
+      const select = document.getElementById('invCustomerSelect');
+      select.innerHTML = '<option value="">-- Choose Existing Customer --</option>';
+      const tbody = document.getElementById('customerTableBody');
+      tbody.innerHTML = '';
+
+      customers.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.keyword ? `${c.name} [Keyword: ${c.keyword}]` : c.name;
+        select.appendChild(opt);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 font-semibold text-slate-800">${c.name}</td>
+          <td class="py-2.5 px-3 font-semibold text-indigo-700">${c.keyword || '-'}</td>
+          <td class="py-2.5 px-3 font-mono">${c.gstin || '-'}</td>
+          <td class="py-2.5 px-3">${c.phone || '-'}</td>
+          <td class="py-2.5 px-3">${c.address}</td>
+          <td class="py-2.5 px-3 text-center space-x-2">
+            <button onclick="editCustomer(${c.id})" class="text-amber-600 font-bold hover:underline">Edit</button>
+            <button onclick="deleteCustomer(${c.id})" class="text-rose-600 font-bold hover:underline">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function autoFillCustomer(id) {
+      const customer = customers.find(c => String(c.id) === String(id));
+      if (customer) {
+        document.getElementById('invCustName').value = customer.name;
+        document.getElementById('invGSTIN').value = customer.gstin || '';
+        document.getElementById('invPhone').value = customer.phone || '';
+        document.getElementById('invAddress').value = customer.address || '';
+      }
+    }
+
+    function numberToWordsIndian(num) {
+      if (num === 0) return 'Rupees Zero';
+      const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+      const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+      function inWords(n) {
+        if (n < 20) return a[n];
+        if (n < 100) return b[Math.floor(n / 10)] + ' ' + a[n % 10];
+        if (n < 1000) return a[Math.floor(n / 100)] + 'Hundred ' + inWords(n % 100);
+        return '';
+      }
+
+      let str = '';
+      const crore = Math.floor(num / 10000000);
+      num %= 10000000;
+      const lakh = Math.floor(num / 100000);
+      num %= 100000;
+      const thousand = Math.floor(num / 1000);
+      num %= 1000;
+      const rem = num;
+
+      if (crore > 0) str += inWords(crore) + 'Crore ';
+      if (lakh > 0) str += inWords(lakh) + 'Lakh ';
+      if (thousand > 0) str += inWords(thousand) + 'Thousand ';
+      if (rem > 0) str += inWords(rem);
+
+      return ('Rupees ' + str).replace(/\s+/g, ' ').trim();
+    }
+  </script>
+</body>
+</html>
