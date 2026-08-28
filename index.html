@@ -12,12 +12,9 @@
     .font-brand { font-family: 'Cinzel', serif, Georgia, Cambria, serif; }
     
     @media print {
-      /* Hide regular screen UI elements */
       #offlineScreen, #loginScreen, #appScreen, .no-print { 
         display: none !important; 
       }
-      
-      /* Force print wrappers to be strictly visible on paper/preview */
       .print-visible {
         display: block !important;
         position: relative !important;
@@ -28,7 +25,6 @@
         padding: 0 !important;
         background: #ffffff !important;
       }
-      
       .page-break { page-break-after: always; break-after: page; }
       @page { size: A4 portrait; margin: 6mm; }
     }
@@ -130,6 +126,7 @@
               <p id="editingBadge" class="text-xs bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md font-bold hidden">⚠️ Editing Mode</p>
             </div>
 
+            <!-- Single Line Header Inputs: Cycle, Invoice No, Date, Vehicle No, HSN Code -->
             <div class="flex items-center gap-3 flex-wrap">
               <div id="invoiceCycleBadgeBox" class="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-300">
                 <span class="text-[11px] font-bold text-slate-500 uppercase">Cycle:</span>
@@ -142,11 +139,12 @@
                 </button>
               </div>
 
-              <!-- EDITABLE INVOICE NUMBER -->
               <span id="docNumberLabel" class="text-xs font-bold text-slate-600">Invoice No:</span>
               <input type="text" id="invNumber" class="w-28 px-2.5 py-1 text-xs border border-blue-300 rounded-md bg-white font-mono font-black text-blue-700 focus:ring-2 focus:ring-blue-600 outline-none shadow-inner" placeholder="001">
+              
               <input type="date" id="invDate" onchange="handleDateChange(this.value)" class="px-2.5 py-1 text-xs border rounded-md text-slate-700 font-medium">
-              <input type="text" id="invVehicle" placeholder="Vehicle / Ref No." class="w-32 px-2.5 py-1 text-xs border rounded-md text-slate-700">
+              <input type="text" id="invVehicle" placeholder="Vehicle No." class="w-28 px-2.5 py-1 text-xs border rounded-md text-slate-700">
+              <input type="text" id="invHSN" placeholder="HSN Code" class="w-28 px-2.5 py-1 text-xs border rounded-md text-slate-700 font-mono">
             </div>
           </div>
 
@@ -197,15 +195,15 @@
             </div>
           </div>
 
-          <!-- Interactive Line Items Table -->
+          <!-- Clean Table: Description, Quantity / Unit (Nos/Sq.Ft), Rate, Amount -->
           <div class="overflow-x-auto mb-6 border rounded-lg">
             <table class="w-full text-left border-collapse text-xs">
               <thead>
                 <tr class="border-b border-slate-200 bg-slate-100 text-slate-700 uppercase font-bold">
                   <th class="py-2.5 px-3">Particulars / Description of Goods</th>
-                  <th class="py-2.5 px-3 w-28">Quantity</th>
-                  <th class="py-2.5 px-3 w-28">Rate (₹)</th>
-                  <th class="py-2.5 px-3 w-28 text-right">Amount (₹)</th>
+                  <th class="py-2.5 px-2 w-40">Quantity / Unit</th>
+                  <th class="py-2.5 px-3 w-32">Rate (₹)</th>
+                  <th class="py-2.5 px-3 w-32 text-right">Amount (₹)</th>
                   <th class="py-2.5 px-2 w-24 text-center">Actions</th>
                 </tr>
               </thead>
@@ -232,14 +230,34 @@
             </div>
           </div>
 
-          <!-- Summary Grid -->
+          <!-- Summary Grid with Toggleable Discount Feature -->
           <div class="flex flex-col md:flex-row justify-between items-start pt-4 border-t border-slate-200 gap-6">
-            <div class="max-w-md w-full">
-              <label class="block text-xs font-bold text-slate-500 mb-1">Amount in Words</label>
-              <div id="grandTotalWords" class="p-3 bg-slate-50 border rounded-lg text-xs font-semibold text-slate-700 italic min-h-[42px]">Rupees Zero Only</div>
+            <div class="max-w-md w-full space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">Amount in Words</label>
+                <div id="grandTotalWords" class="p-3 bg-slate-50 border rounded-lg text-xs font-semibold text-slate-700 italic min-h-[42px]">Rupees Zero Only</div>
+              </div>
+              <div>
+                <button type="button" onclick="toggleDiscountBox()" id="btnToggleDiscount" class="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold text-xs rounded-lg hover:bg-emerald-100 transition flex items-center gap-1.5 shadow-sm">
+                  <span>🏷️</span> Add Discount (-)
+                </button>
+              </div>
             </div>
+            
             <div class="w-full md:w-80 space-y-2 text-xs">
-              <div class="flex justify-between text-slate-600"><span>Total Amount:</span><span id="subTotalDisplay" class="font-mono font-bold">₹0.00</span></div>
+              <div class="flex justify-between text-slate-600"><span>Gross Subtotal:</span><span id="subTotalDisplay" class="font-mono font-bold">₹0.00</span></div>
+              
+              <!-- Conditional Discount Row -->
+              <div id="discountRow" class="flex justify-between items-center text-emerald-700 font-bold bg-emerald-50 p-1.5 rounded-md border border-emerald-200 hidden">
+                <span class="flex items-center gap-1">Discount (-):</span>
+                <div class="flex items-center gap-1">
+                  <span>₹</span>
+                  <input type="number" id="invDiscountInput" oninput="calculateTotals()" placeholder="0.00" step="0.01" class="w-24 px-2 py-0.5 text-right font-mono font-bold text-emerald-800 border border-emerald-300 rounded bg-white outline-none focus:ring-1 focus:ring-emerald-600">
+                  <button type="button" onclick="removeDiscount()" class="text-rose-500 hover:text-rose-700 font-bold px-1" title="Remove Discount">✕</button>
+                </div>
+              </div>
+
+              <div id="taxableAmountRow" class="flex justify-between text-slate-600 hidden"><span>Taxable Amount:</span><span id="taxableDisplay" class="font-mono font-bold">₹0.00</span></div>
               <div class="flex justify-between text-slate-600"><span>SGST 9%:</span><span id="sgstDisplay" class="font-mono font-bold">₹0.00</span></div>
               <div class="flex justify-between text-slate-600"><span>CGST 9%:</span><span id="cgstDisplay" class="font-mono font-bold">₹0.00</span></div>
               <div class="flex justify-between text-slate-600"><span>Round OFF:</span><span id="roundOffDisplay" class="font-mono font-bold">₹0.00</span></div>
@@ -573,7 +591,7 @@
             </div>
           </div>
 
-          <!-- INDIVIDUAL CUSTOMER DETAILED STATEMENT VIEW (CLEAN - NO TYPE COLUMN, INVOICE # HEADER, DD-MM-YYYY) -->
+          <!-- INDIVIDUAL CUSTOMER DETAILED STATEMENT VIEW -->
           <div id="individualStatementBox" class="space-y-3 hidden">
             <div class="flex justify-between items-center">
               <h3 id="individualStatementHeading" class="text-xs font-black uppercase tracking-wider text-slate-800"></h3>
@@ -604,7 +622,7 @@
     </main>
   </div>
 
-  <!-- 1. PRINTABLE EXACT ORIGINAL TAX INVOICE FORMAT -->
+  <!-- 1. PRINTABLE EXACT ORIGINAL TAX INVOICE FORMAT (Single Header HSN Code & Vehicle No Box) -->
   <div id="printableInvoiceWrapper" class="bg-white p-2 text-black font-sans text-xs hidden">
     <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto;">
       <div class="p-2 border-b-2 border-black flex items-center justify-between">
@@ -643,7 +661,7 @@
       </div>
 
       <div class="grid grid-cols-12 border-b-2 border-black text-[13px]">
-        <div class="col-span-8 border-r-2 border-black">
+        <div class="col-span-7 border-r-2 border-black">
           <div class="font-extrabold px-2 py-0.5 border-b border-black bg-slate-50 text-[12px] uppercase">CUSTOMER DETAILS</div>
           <div class="grid grid-cols-12 border-b border-black items-center">
             <span class="col-span-3 px-2 py-1 font-bold border-r border-black">Name:</span>
@@ -663,7 +681,7 @@
           </div>
         </div>
 
-        <div class="col-span-4 flex flex-col justify-between font-bold">
+        <div class="col-span-5 flex flex-col justify-between font-bold">
           <div class="grid grid-cols-2 border-b border-black p-1.5 items-center">
             <span class="text-[12px]">INVOICE NO</span>
             <span id="printInvNo" class="font-mono font-black text-right text-[15px]"></span>
@@ -672,9 +690,13 @@
             <span class="text-[12px]">Date</span>
             <span id="printInvDate" class="font-mono font-bold text-right text-[13px]"></span>
           </div>
-          <div class="grid grid-cols-2 p-1.5 items-center min-h-[32px]">
+          <div class="grid grid-cols-2 border-b border-black p-1.5 items-center">
             <span class="text-[12px]">Vehicle NO.</span>
             <span id="printInvVehicle" class="font-mono font-bold text-right text-[13px]"></span>
+          </div>
+          <div class="grid grid-cols-2 p-1.5 items-center min-h-[28px]">
+            <span class="text-[12px]">HSN/SAC Code</span>
+            <span id="printInvHSN" class="font-mono font-extrabold text-right text-[13px]"></span>
           </div>
         </div>
       </div>
@@ -684,8 +706,8 @@
           <tr class="border-b-2 border-black font-extrabold text-center text-[12px]">
             <th rowspan="2" class="py-1 px-1 w-10 border-r-2 border-black">SL</th>
             <th rowspan="2" class="py-1 px-2 border-r-2 border-black text-left">Description of Goods</th>
-            <th rowspan="2" class="py-1 px-1 w-14 border-r-2 border-black">Qts</th>
-            <th rowspan="2" class="py-1 px-2 w-20 border-r-2 border-black">Rate</th>
+            <th rowspan="2" class="py-1 px-1 w-20 border-r-2 border-black">Qts / Unit</th>
+            <th rowspan="2" class="py-1 px-2 w-24 border-r-2 border-black">Rate</th>
             <th colspan="2" class="py-0.5 border-b border-black">Amount</th>
           </tr>
           <tr class="border-b-2 border-black font-extrabold text-center text-[11px]">
@@ -709,6 +731,10 @@
           <div class="flex justify-between border-b border-black px-3 py-1.5 items-center">
             <span class="font-bold text-[13px]">Total Amount</span>
             <span id="printSubTotal" class="font-mono font-extrabold text-[13px]">₹0.00</span>
+          </div>
+          <div id="printDiscountContainer" class="flex justify-between border-b border-black px-3 py-1.5 items-center hidden font-bold text-emerald-900 bg-emerald-50/50">
+            <span class="text-[13px]">Discount (-)</span>
+            <span id="printDiscount" class="font-mono font-extrabold text-[13px]">₹0.00</span>
           </div>
           <div class="flex justify-between border-b border-black px-3 py-1.5 items-center">
             <span class="font-bold text-[13px]">SGST 9%</span>
@@ -802,13 +828,19 @@
           <tr class="border-b-2 border-black font-bold text-center bg-slate-50">
             <th class="py-2 px-2 w-12 border-r border-black">S.No.</th>
             <th class="py-2 px-3 border-r border-black text-left">Particulars</th>
-            <th class="py-2 px-2 w-20 border-r border-black">Qty</th>
+            <th class="py-2 px-2 w-28 border-r border-black">Qty / Unit</th>
             <th class="py-2 px-2 w-28 border-r border-black">Rate</th>
             <th class="py-2 px-3 w-32 text-right">Amount</th>
           </tr>
         </thead>
         <tbody id="quotePrintLineItems"></tbody>
       </table>
+
+      <!-- Quotation Discount Row if active -->
+      <div id="quotePrintDiscountBox" class="border border-black p-2 mb-3 font-bold flex justify-between items-center hidden bg-slate-50">
+        <span>Discount Applied:</span>
+        <span id="quotePrintDiscountAmt" class="font-mono font-black text-emerald-800"></span>
+      </div>
 
       <p class="text-[12px] font-medium text-slate-800 mb-3">
         We trust our offer is up to your satisfaction. If should have any queries please feel free to contact us. Thank You,
@@ -875,13 +907,11 @@
         </div>
       </div>
 
-      <!-- Printable Table Container -->
       <table class="w-full text-left border-collapse text-[11px] mb-4" style="border: 1.5px solid #000;">
         <thead id="stmtTableHead"></thead>
         <tbody id="stmtTableBody"></tbody>
       </table>
 
-      <!-- Statement Summary Footer Box -->
       <div class="grid grid-cols-3 gap-2 border-2 border-black p-2.5 bg-slate-50 text-[12px] font-bold mb-6">
         <div>Total Billed: <span id="stmtSumBilled" class="font-mono font-black text-slate-900 ml-1">₹0.00</span></div>
         <div>Total Received: <span id="stmtSumPaid" class="font-mono font-black text-emerald-800 ml-1">₹0.00</span></div>
@@ -956,6 +986,7 @@
     let paymentSelectedCycle = 'ALL';
     let selectedCycle = calculateCycle(new Date());
     let activeInvoiceCycle = calculateCycle(new Date());
+    let isDiscountActive = false;
 
     // Strict Date Formatter to DD-MM-YYYY
     function formatDisplayDate(dateStr) {
@@ -1098,7 +1129,6 @@
       }
     }
 
-    // PROTECTED DELETION (Requires Login Password "vsg69")
     function deleteActiveInvoiceCycle() {
       deleteCycleHelper(activeInvoiceCycle);
     }
@@ -1292,14 +1322,50 @@
       document.getElementById('invNumber').value = prefix + String(maxNum + 1).padStart(3, '0');
     }
 
-    function addLineItem(desc = '', qty = 1, rate = 0) {
+    // DISCOUNT TOGGLE FUNCTIONS
+    function toggleDiscountBox() {
+      isDiscountActive = true;
+      document.getElementById('discountRow').classList.remove('hidden');
+      document.getElementById('taxableAmountRow').classList.remove('hidden');
+      document.getElementById('btnToggleDiscount').classList.add('hidden');
+      document.getElementById('invDiscountInput').focus();
+      calculateTotals();
+    }
+
+    function removeDiscount() {
+      isDiscountActive = false;
+      document.getElementById('invDiscountInput').value = '';
+      document.getElementById('discountRow').classList.add('hidden');
+      document.getElementById('taxableAmountRow').classList.add('hidden');
+      document.getElementById('btnToggleDiscount').classList.remove('hidden');
+      calculateTotals();
+    }
+
+    // LINE ITEM ROW: Description + Quantity & Unit Dropdown (Nos / Sq.Ft / Kg / Set / Mtr / Hours) + Rate
+    function addLineItem(desc = '', qty = 1, unit = 'Nos', rate = 0) {
       const tbody = document.getElementById('lineItemsBody');
       const tr = document.createElement('tr');
       tr.className = 'line-item-row hover:bg-slate-50 transition';
       tr.innerHTML = `
-        <td class="py-2 px-3"><textarea rows="1" class="item-desc w-full border rounded-md px-2.5 py-1.5 text-xs resize-y" placeholder="Particulars / Item Description">${desc}</textarea></td>
-        <td class="py-2 px-3"><input type="text" oninput="calculateTotals()" class="item-qty w-full border rounded-md px-2 py-1 text-right text-xs font-mono" value="${qty}"></td>
-        <td class="py-2 px-3"><input type="number" oninput="calculateTotals()" class="item-rate w-full border rounded-md px-2 py-1 text-right text-xs font-mono" value="${rate}" step="0.01"></td>
+        <td class="py-2 px-3">
+          <textarea rows="1" class="item-desc w-full border rounded-md px-2.5 py-1.5 text-xs resize-y" placeholder="Particulars / Item Description">${desc}</textarea>
+        </td>
+        <td class="py-2 px-2">
+          <div class="flex items-center gap-1">
+            <input type="text" oninput="calculateTotals()" class="item-qty w-16 border rounded-md px-2 py-1 text-right text-xs font-mono font-bold" value="${qty}">
+            <select onchange="calculateTotals()" class="item-unit border rounded-md px-1.5 py-1 text-xs bg-white text-slate-700 outline-none font-semibold">
+              <option value="Nos" ${unit === 'Nos' ? 'selected' : ''}>Nos</option>
+              <option value="Sq.Ft" ${unit === 'Sq.Ft' ? 'selected' : ''}>Sq.Ft</option>
+              <option value="Kg" ${unit === 'Kg' ? 'selected' : ''}>Kg</option>
+              <option value="Set" ${unit === 'Set' ? 'selected' : ''}>Set</option>
+              <option value="Mtr" ${unit === 'Mtr' ? 'selected' : ''}>Mtr</option>
+              <option value="Hrs" ${unit === 'Hrs' ? 'selected' : ''}>Hrs</option>
+            </select>
+          </div>
+        </td>
+        <td class="py-2 px-3">
+          <input type="number" oninput="calculateTotals()" class="item-rate w-full border rounded-md px-2 py-1 text-right text-xs font-mono" value="${rate}" step="0.01">
+        </td>
         <td class="py-2 px-3 text-right font-mono font-bold item-total text-slate-800">₹0.00</td>
         <td class="py-2 px-2 text-center">
           <div class="inline-flex items-center gap-1">
@@ -1318,8 +1384,9 @@
       const row = btn.closest('tr');
       const desc = row.querySelector('.item-desc').value;
       const qty = row.querySelector('.item-qty').value;
+      const unit = row.querySelector('.item-unit').value;
       const rate = row.querySelector('.item-rate').value;
-      addLineItem(desc, qty, rate);
+      addLineItem(desc, qty, unit, rate);
     }
 
     function moveRow(btn, direction) {
@@ -1327,7 +1394,7 @@
       if (direction === -1 && row.previousElementSibling) {
         row.parentNode.insertBefore(row, row.previousElementSibling);
       } else if (direction === 1 && row.nextElementSibling) {
-        row.parentNode.insertBefore(row.nextElementSibling, row);
+        row.parentNode.insertBefore(row, row.nextElementSibling);
       }
       calculateTotals();
     }
@@ -1356,24 +1423,34 @@
         subtotal += lineTotal;
       });
 
-      const sgst = subtotal * 0.09;
-      const cgst = subtotal * 0.09;
-      const rawGrand = subtotal + sgst + cgst;
+      let discount = 0;
+      if (isDiscountActive) {
+        discount = parseFloat(document.getElementById('invDiscountInput').value) || 0;
+        if (discount > subtotal) discount = subtotal;
+      }
+
+      const taxableAmount = Math.max(0, subtotal - discount);
+
+      const sgst = taxableAmount * 0.09;
+      const cgst = taxableAmount * 0.09;
+      const rawGrand = taxableAmount + sgst + cgst;
       const grandTotal = Math.round(rawGrand);
       const roundOff = grandTotal - rawGrand;
 
       document.getElementById('subTotalDisplay').textContent = `₹${subtotal.toFixed(2)}`;
+      document.getElementById('taxableDisplay').textContent = `₹${taxableAmount.toFixed(2)}`;
       document.getElementById('sgstDisplay').textContent = `₹${sgst.toFixed(2)}`;
       document.getElementById('cgstDisplay').textContent = `₹${cgst.toFixed(2)}`;
       document.getElementById('roundOffDisplay').textContent = `₹${roundOff.toFixed(2)}`;
       document.getElementById('grandTotalDisplay').textContent = `₹${grandTotal.toFixed(2)}`;
       document.getElementById('grandTotalWords').textContent = numberToWordsIndian(grandTotal) + " Only";
 
-      return { subtotal, sgst, cgst, roundOff, grandTotal };
+      return { subtotal, discount, taxableAmount, sgst, cgst, roundOff, grandTotal };
     }
 
     function resetInvoiceForm() {
       editingDocNumber = null;
+      removeDiscount();
       document.getElementById('editingBadge').classList.add('hidden');
       document.getElementById('cancelEditBtn').classList.add('hidden');
       document.getElementById('lineItemsBody').innerHTML = '';
@@ -1383,6 +1460,7 @@
       document.getElementById('invPhone').value = '';
       document.getElementById('invAddress').value = '';
       document.getElementById('invVehicle').value = '';
+      document.getElementById('invHSN').value = '';
       document.getElementById('quoteBodyText').value = '';
       document.getElementById('invDate').valueAsDate = new Date();
       activeInvoiceCycle = calculateCycle(new Date());
@@ -1405,9 +1483,10 @@
         return;
       }
 
-      const { subtotal, sgst, cgst, roundOff, grandTotal } = calculateTotals();
+      const { subtotal, discount, taxableAmount, sgst, cgst, roundOff, grandTotal } = calculateTotals();
       const docDate = document.getElementById('invDate').value;
       const vehicle = document.getElementById('invVehicle').value.trim();
+      const hsn = document.getElementById('invHSN').value.trim();
       const isQuote = currentDocType === 'QUOTATION';
       const quoteBody = document.getElementById('quoteBodyText').value.trim();
       const cycleVal = isQuote ? '' : activeInvoiceCycle;
@@ -1417,6 +1496,7 @@
         items.push({
           desc: row.querySelector('.item-desc').value.trim(),
           qty: row.querySelector('.item-qty').value.trim(),
+          unit: row.querySelector('.item-unit').value,
           rate: parseFloat(row.querySelector('.item-rate').value) || 0
         });
       });
@@ -1427,12 +1507,15 @@
         cycle: cycleVal,
         date: docDate,
         vehicle: vehicle,
+        hsn: hsn,
         customer: custName,
         gstin: document.getElementById('invGSTIN').value,
         phone: document.getElementById('invPhone').value,
         address: document.getElementById('invAddress').value,
         items: items,
         subtotal: subtotal,
+        discount: discount,
+        taxableAmount: taxableAmount,
         sgst: sgst,
         cgst: cgst,
         roundOff: roundOff,
@@ -1505,6 +1588,14 @@
           printBodyBox.classList.add('hidden');
         }
 
+        const quoteDiscBox = document.getElementById('quotePrintDiscountBox');
+        if (doc.discount && doc.discount > 0) {
+          quoteDiscBox.classList.remove('hidden');
+          document.getElementById('quotePrintDiscountAmt').textContent = `(-) ₹${doc.discount.toFixed(2)}`;
+        } else {
+          quoteDiscBox.classList.add('hidden');
+        }
+
         document.getElementById('quotePrintAdvance').textContent = `• ${doc.quoteAdvance || 'Advance 60% from the date of PO'}`;
         document.getElementById('quotePrintValidity').textContent = `• ${doc.quoteValidity || 'Quotation Rates valid 15 days only'}`;
         document.getElementById('quotePrintGSTTerms').textContent = `• ${doc.quoteGSTTerms || 'GST 18% extra'}`;
@@ -1521,12 +1612,13 @@
         (doc.items || []).forEach(item => {
           const qtyNum = parseFloat(item.qty) || 1;
           const totalAmt = (qtyNum * parseFloat(item.rate)).toFixed(2);
+          const unitStr = item.unit ? ` ${item.unit}` : '';
           const tr = document.createElement('tr');
           tr.className = 'border-b border-black text-center align-top';
           tr.innerHTML = `
             <td class="py-1.5 px-2 border-r border-black font-bold text-center">${idx++}</td>
             <td class="py-1.5 px-3 border-r border-black text-left font-semibold whitespace-pre-line leading-relaxed">${item.desc}</td>
-            <td class="py-1.5 px-2 border-r border-black font-mono font-bold">${item.qty}</td>
+            <td class="py-1.5 px-2 border-r border-black font-mono font-bold">${item.qty}${unitStr}</td>
             <td class="py-1.5 px-2 border-r border-black text-right font-mono font-bold">${parseFloat(item.rate).toFixed(2)}</td>
             <td class="py-1.5 px-3 text-right font-mono font-bold text-[13px]">${totalAmt}</td>
           `;
@@ -1543,6 +1635,7 @@
         document.getElementById('printInvNo').textContent = doc.number;
         document.getElementById('printInvDate').textContent = formatDisplayDate(doc.date);
         document.getElementById('printInvVehicle').textContent = doc.vehicle || '';
+        document.getElementById('printInvHSN').textContent = doc.hsn || '-';
         document.getElementById('printCustName').textContent = doc.customer;
         document.getElementById('printCustGSTIN').textContent = doc.gstin || '';
         document.getElementById('printCustPhone').textContent = doc.phone || '';
@@ -1557,13 +1650,14 @@
           const qtyNum = parseFloat(item.qty) || 1;
           const itemAmount = qtyNum * parseFloat(item.rate);
           const splitAmt = splitRsPs(itemAmount);
+          const unitStr = item.unit && item.unit !== 'Nos' ? ` ${item.unit}` : (item.unit === 'Nos' ? ' Nos' : '');
 
           const tr = document.createElement('tr');
           tr.className = 'border-b border-black text-center font-bold align-top min-h-[28px]';
           tr.innerHTML = `
             <td class="py-1.5 px-1 border-r-2 border-black text-[12px]">${idx++}</td>
             <td class="py-1.5 px-2 border-r-2 border-black text-left font-extrabold text-[13px] whitespace-pre-line">${item.desc}</td>
-            <td class="py-1.5 px-1 border-r-2 border-black font-mono text-[13px]">${item.qty}</td>
+            <td class="py-1.5 px-1 border-r-2 border-black font-mono text-[12px]">${item.qty}${unitStr}</td>
             <td class="py-1.5 px-2 border-r-2 border-black text-right font-mono text-[13px]">${parseFloat(item.rate).toFixed(2)}</td>
             <td class="py-1.5 px-2 border-r border-black text-right font-mono font-black text-[13px]">${splitAmt.rs}</td>
             <td class="py-1.5 px-1 text-center font-mono font-black text-[13px]">${splitAmt.ps}</td>
@@ -1591,6 +1685,15 @@
         }
 
         document.getElementById('printSubTotal').textContent = `₹${doc.subtotal.toFixed(2)}`;
+        
+        const printDiscountBox = document.getElementById('printDiscountContainer');
+        if (doc.discount && doc.discount > 0) {
+          printDiscountBox.classList.remove('hidden');
+          document.getElementById('printDiscount').textContent = `(-) ₹${doc.discount.toFixed(2)}`;
+        } else {
+          printDiscountBox.classList.add('hidden');
+        }
+
         document.getElementById('printSGST').textContent = `₹${doc.sgst.toFixed(2)}`;
         document.getElementById('printCGST').textContent = `₹${doc.cgst.toFixed(2)}`;
         document.getElementById('printRoundOff').textContent = `₹${doc.roundOff.toFixed(2)}`;
@@ -2262,6 +2365,7 @@
       document.getElementById('invNumber').value = doc.number;
       document.getElementById('invDate').value = doc.date;
       document.getElementById('invVehicle').value = doc.vehicle || '';
+      document.getElementById('invHSN').value = doc.hsn || '';
       document.getElementById('invCustName').value = doc.customer;
       document.getElementById('invGSTIN').value = doc.gstin || '';
       document.getElementById('invPhone').value = doc.phone || '';
@@ -2271,6 +2375,16 @@
         activeInvoiceCycle = doc.cycle;
         populateCycleDropdown();
         populatePaymentCycleFilter();
+      }
+
+      if (doc.discount && doc.discount > 0) {
+        isDiscountActive = true;
+        document.getElementById('discountRow').classList.remove('hidden');
+        document.getElementById('taxableAmountRow').classList.remove('hidden');
+        document.getElementById('btnToggleDiscount').classList.add('hidden');
+        document.getElementById('invDiscountInput').value = doc.discount;
+      } else {
+        removeDiscount();
       }
 
       if (doc.type === 'QUOTATION') {
@@ -2283,7 +2397,7 @@
 
       document.getElementById('lineItemsBody').innerHTML = '';
       if (doc.items && doc.items.length > 0) {
-        doc.items.forEach(item => addLineItem(item.desc, item.qty, item.rate));
+        doc.items.forEach(item => addLineItem(item.desc, item.qty, item.unit || 'Nos', item.rate));
       } else {
         addLineItem();
       }
