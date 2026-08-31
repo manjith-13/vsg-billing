@@ -7,10 +7,23 @@
   
   <style>
     .hidden { display: none !important; }
-    body { font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background-color: #f1f5f9; color: #0f172a; }
+    body { font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; }
     input, select, textarea, button { font-family: inherit; }
     .font-brand { font-family: 'Cinzel', serif, Georgia, Cambria, serif; }
     
+    /* Dark mode helper classes */
+    .dark body { background-color: #0b1329; color: #f8fafc; }
+    .dark .bg-white { background-color: #1e293b !important; color: #f8fafc !important; }
+    .dark .bg-slate-50 { background-color: #0f172a !important; color: #f8fafc !important; }
+    .dark .bg-slate-100 { background-color: #1e293b !important; color: #f8fafc !important; }
+    .dark .border-slate-200, .dark .border-slate-300, .dark .border-slate-100 { border-color: #334155 !important; }
+    .dark input, .dark select, .dark textarea { background-color: #0f172a !important; color: #f8fafc !important; border-color: #475569 !important; }
+    .dark .text-slate-900, .dark .text-slate-800, .dark .text-slate-700 { color: #f8fafc !important; }
+    .dark .text-slate-600, .dark .text-slate-500 { color: #94a3b8 !important; }
+
+    .spin-active { animation: spin 0.7s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+
     @media print {
       #offlineScreen, #loginScreen, #appScreen, .no-print { 
         display: none !important; 
@@ -24,6 +37,7 @@
         margin: 0 !important;
         padding: 0 !important;
         background: #ffffff !important;
+        color: #000000 !important;
       }
       .page-break { page-break-after: always; break-after: page; }
       @page { size: A4 portrait; margin: 6mm; }
@@ -31,6 +45,11 @@
   </style>
 
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class'
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -81,7 +100,7 @@
   </div>
 
   <!-- MAIN APP PORTAL -->
-  <div id="appScreen" class="hidden min-h-screen pb-12 bg-slate-100">
+  <div id="appScreen" class="hidden min-h-screen pb-12">
     <!-- Navbar -->
     <header class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center no-print shadow-md sticky top-0 z-40">
       <div class="flex items-center gap-3">
@@ -103,6 +122,7 @@
         <button onclick="switchTab('history')" id="btnNavHistory" class="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md transition">History</button>
         <button onclick="switchTab('payment')" id="btnNavPayment" class="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-md transition">Payment Ledger</button>
         <button onclick="switchTab('profile')" id="btnNavProfile" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition">Profile & Backup</button>
+        <button onclick="toggleAppTheme()" class="px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition" title="Toggle Theme">🌙/☀️</button>
         <button onclick="handleLogout()" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white ml-2 shadow-md transition">Logout</button>
       </div>
     </header>
@@ -123,20 +143,16 @@
                   📑 Price Quotation
                 </button>
               </div>
-              <p id="editingBadge" class="text-xs bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md font-bold hidden">⚠️ Editing Mode</p>
+              <p id="editingBadge" class="text-xs bg-amber-100 text-amber-800 px-2.5 py-1 rounded-md font-bold hidden">⚠️ Overwrite Edit Mode (<span id="editingDocName"></span>)</p>
             </div>
 
-            <!-- Single Line Header Inputs: Cycle, Invoice No, Date, Vehicle No, HSN Code -->
+            <!-- Single Line Header Inputs -->
             <div class="flex items-center gap-3 flex-wrap">
               <div id="invoiceCycleBadgeBox" class="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-300">
                 <span class="text-[11px] font-bold text-slate-500 uppercase">Cycle:</span>
                 <select id="invCycleSelect" onchange="handleInvoiceCycleChange(this.value)" class="text-xs font-extrabold text-blue-700 font-mono bg-white border border-slate-300 rounded px-1.5 py-0.5 outline-none cursor-pointer focus:ring-1 focus:ring-blue-600"></select>
-                <button type="button" onclick="promptAddNewCycleFromInvoice()" title="Add New Financial Cycle" class="px-1.5 py-0.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded transition flex items-center">
-                  ➕
-                </button>
-                <button type="button" onclick="deleteActiveInvoiceCycle()" title="Delete Current Active Cycle" class="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded transition flex items-center">
-                  🗑️
-                </button>
+                <button type="button" onclick="promptAddNewCycleFromInvoice()" title="Add New Financial Cycle" class="px-1.5 py-0.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded transition flex items-center">➕</button>
+                <button type="button" onclick="deleteActiveInvoiceCycle()" title="Delete Current Active Cycle" class="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded transition flex items-center">🗑️</button>
               </div>
 
               <span id="docNumberLabel" class="text-xs font-bold text-slate-600">Invoice No:</span>
@@ -195,7 +211,7 @@
             </div>
           </div>
 
-          <!-- Clean Table: Description, Quantity / Unit (Nos/Sq.Ft), Rate, Amount -->
+          <!-- Clean Table -->
           <div class="overflow-x-auto mb-6 border rounded-lg">
             <table class="w-full text-left border-collapse text-xs">
               <thead>
@@ -230,7 +246,7 @@
             </div>
           </div>
 
-          <!-- Summary Grid with Toggleable Discount Feature -->
+          <!-- Summary Grid -->
           <div class="flex flex-col md:flex-row justify-between items-start pt-4 border-t border-slate-200 gap-6">
             <div class="max-w-md w-full space-y-3">
               <div>
@@ -247,7 +263,6 @@
             <div class="w-full md:w-80 space-y-2 text-xs">
               <div class="flex justify-between text-slate-600"><span>Gross Subtotal:</span><span id="subTotalDisplay" class="font-mono font-bold">₹0.00</span></div>
               
-              <!-- Conditional Discount Row -->
               <div id="discountRow" class="flex justify-between items-center text-emerald-700 font-bold bg-emerald-50 p-1.5 rounded-md border border-emerald-200 hidden">
                 <span class="flex items-center gap-1">Discount (-):</span>
                 <div class="flex items-center gap-1">
@@ -281,8 +296,23 @@
       <section id="tabProfile" class="hidden space-y-6 no-print">
         <div class="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 p-6 max-w-4xl mx-auto space-y-6">
           <div class="flex justify-between items-center pb-4 border-b border-slate-100">
-            <h2 class="text-base font-extrabold text-slate-800 tracking-tight">Company & Banking Profile Settings</h2>
+            <div>
+              <h2 class="text-base font-extrabold text-slate-800 tracking-tight">Company & Portal Settings</h2>
+              <p class="text-xs text-slate-500">Configure business information and system theme.</p>
+            </div>
             <button onclick="saveProfileData()" class="px-5 py-2 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition">Save to Cloud</button>
+          </div>
+
+          <!-- Theme Configuration Box -->
+          <div class="p-4 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between">
+            <div>
+              <h3 class="text-xs font-bold text-slate-800">Interface Theme Mode</h3>
+              <p class="text-[11px] text-slate-500">Choose between light and dark user interface themes</p>
+            </div>
+            <div class="inline-flex p-1 bg-slate-200 rounded-lg">
+              <button type="button" onclick="setAppTheme('light')" id="themeBtnLight" class="px-3 py-1 text-xs font-bold rounded-md bg-white text-slate-900 shadow-sm">☀️ Light</button>
+              <button type="button" onclick="setAppTheme('dark')" id="themeBtnDark" class="px-3 py-1 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900">🌙 Dark</button>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -360,7 +390,7 @@
 
           <div class="pt-4 border-t border-slate-200 bg-slate-50 p-4 rounded-lg">
             <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">💾 Portal Offline Backup & Restore</h3>
-            <p class="text-[11px] text-slate-500 mb-3">Even with cloud database active, you can still export raw JSON copies anytime.</p>
+            <p class="text-[11px] text-slate-500 mb-3">Export or restore raw JSON copies anytime.</p>
             <div class="flex items-center gap-3 flex-wrap">
               <button onclick="downloadBackup()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition">
                 ⬇️ Download Backup (.json)
@@ -432,14 +462,23 @@
           <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 mb-6 gap-4">
             <div>
               <h2 class="text-base font-extrabold text-slate-800 tracking-tight">Historical Documents (Cloud Realtime)</h2>
-              <p class="text-xs text-slate-500">View, download single invoices, or download all invoices in selected cycle</p>
+              <p class="text-xs text-slate-500">Auto-shifts numbers on delete or insert in-between</p>
             </div>
 
             <div class="flex items-center gap-2 flex-wrap">
+              <!-- Fast Cloud Refresh Button -->
+              <button onclick="manualRefreshData()" id="btnRefreshHistory" title="Force sync latest database from cloud" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5">
+                <span id="refreshIcon">🔄</span> <span>Refresh</span>
+              </button>
+
               <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
                 <span class="text-xs font-bold text-slate-600 pl-1">Cycle:</span>
                 <select id="historyCycleSelect" onchange="onCycleChange(this.value)" class="px-2 py-1 text-xs border rounded-lg bg-white font-mono font-bold text-blue-700 outline-none"></select>
               </div>
+
+              <button onclick="promptInsertInBetween()" title="Insert an invoice in between existing sequence" class="px-3 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1">
+                <span>➕</span> Insert In-Between
+              </button>
 
               <button onclick="promptAddNewCycle()" title="Start a new billing cycle" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1">
                 <span>➕</span> Add Cycle
@@ -495,7 +534,6 @@
             </div>
             
             <div class="flex items-center gap-3 flex-wrap">
-              <!-- Customer Filter -->
               <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
                 <span class="text-xs font-bold text-slate-600 pl-1">Customer:</span>
                 <select id="paymentCustFilter" onchange="onPaymentCustomerChange()" class="px-3 py-1 text-xs border rounded-lg bg-white font-bold text-slate-900 outline-none max-w-[220px]">
@@ -503,7 +541,6 @@
                 </select>
               </div>
 
-              <!-- Cycle Filter in Payment Tab -->
               <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
                 <span class="text-xs font-bold text-slate-600 pl-1">Cycle:</span>
                 <select id="paymentCycleFilter" onchange="onPaymentCycleChange()" class="px-2.5 py-1 text-xs border rounded-lg bg-white font-mono font-bold text-blue-700 outline-none">
@@ -511,7 +548,6 @@
                 </select>
               </div>
 
-              <!-- Print / Download Statement Button -->
               <button onclick="printPaymentLedgerStatement()" class="px-4 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition shadow-sm flex items-center gap-1.5">
                 <span>🖨️</span> Print / PDF Statement
               </button>
@@ -534,7 +570,7 @@
             </div>
           </div>
 
-          <!-- PAYMENT RECORDING BOX (Shown ONLY when viewing an Individual Customer) -->
+          <!-- PAYMENT RECORDING BOX -->
           <div id="paymentRecordBox" class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 rounded-xl hidden">
             <div class="flex items-center justify-between mb-3">
               <h3 class="text-xs font-black uppercase tracking-wider text-blue-900 flex items-center gap-1.5">
@@ -622,9 +658,9 @@
     </main>
   </div>
 
-  <!-- 1. PRINTABLE EXACT ORIGINAL TAX INVOICE FORMAT (Single Header HSN Code & Vehicle No Box) -->
+  <!-- PRINTABLE EXACT ORIGINAL TAX INVOICE FORMAT -->
   <div id="printableInvoiceWrapper" class="bg-white p-2 text-black font-sans text-xs hidden">
-    <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto;">
+    <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto; background: #fff; color: #000;">
       <div class="p-2 border-b-2 border-black flex items-center justify-between">
         <div class="w-20 h-16 flex items-center justify-center">
           <img id="printLogoLeft" src="" class="max-h-16 max-w-full object-contain hidden" alt="Logo">
@@ -778,9 +814,9 @@
     </div>
   </div>
 
-  <!-- 2. EXACT ORIGINAL PRICE QUOTATION FORMAT -->
+  <!-- EXACT ORIGINAL PRICE QUOTATION FORMAT -->
   <div id="printableQuotationWrapper" class="bg-white p-4 text-black font-sans text-xs hidden">
-    <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto; padding: 16px;">
+    <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto; padding: 16px; background: #fff; color: #000;">
       <div class="flex items-center justify-between border-b-2 border-black pb-3">
         <div class="w-20 flex items-center justify-center">
           <img id="quotePrintLogoLeft" src="" class="max-h-16 max-w-full object-contain hidden" alt="Logo">
@@ -836,7 +872,6 @@
         <tbody id="quotePrintLineItems"></tbody>
       </table>
 
-      <!-- Quotation Discount Row if active -->
       <div id="quotePrintDiscountBox" class="border border-black p-2 mb-3 font-bold flex justify-between items-center hidden bg-slate-50">
         <span>Discount Applied:</span>
         <span id="quotePrintDiscountAmt" class="font-mono font-black text-emerald-800"></span>
@@ -874,10 +909,9 @@
     </div>
   </div>
 
-  <!-- 3. PRINTABLE OFFICIAL PAYMENT & TALLY STATEMENT FORMAT -->
+  <!-- PRINTABLE OFFICIAL PAYMENT & TALLY STATEMENT FORMAT -->
   <div id="printablePaymentStatementWrapper" class="bg-white p-4 text-black font-sans text-xs hidden">
-    <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto; padding: 16px;">
-      
+    <div style="border: 2px solid #000; width: 100%; max-width: 800px; margin: 0 auto; padding: 16px; background: #fff; color: #000;">
       <div class="flex items-center justify-between border-b-2 border-black pb-3">
         <div class="w-20 flex items-center justify-center">
           <img id="stmtPrintLogo" src="" class="max-h-16 max-w-full object-contain hidden" alt="Logo">
@@ -927,7 +961,6 @@
           <p class="border-t border-black pt-1 font-bold">Authorised Signatory</p>
         </div>
       </div>
-
     </div>
   </div>
 
@@ -936,7 +969,7 @@
 
   <script>
     // ==========================================
-    // 1. FIREBASE INITIALIZATION WITH YOUR KEYS
+    // 1. FIREBASE INITIALIZATION & PERSISTENCE
     // ==========================================
     const firebaseConfig = {
       apiKey: "AIzaSyBnVW43gZhecWSnDhi_xaMv2SJfffiq_zo",
@@ -953,6 +986,9 @@
     try {
       firebase.initializeApp(firebaseConfig);
       db = firebase.firestore();
+      db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+        console.warn("Firestore offline persistence fallback:", err.code);
+      });
       isCloudActive = true;
     } catch (e) {
       console.warn("Cloud Firestore initialization fallback to local.", e);
@@ -970,7 +1006,8 @@
       bankIFSC: 'IOBA0001709',
       bankBranch: 'Rathinapuri,CBE-27',
       logo: '',
-      emblem: ''
+      emblem: '',
+      theme: 'light'
     };
 
     let profile = JSON.parse(localStorage.getItem('vsg_company_profile')) || defaultProfile;
@@ -979,7 +1016,8 @@
     let payments = JSON.parse(localStorage.getItem('vsg_payments')) || [];
     let userCycles = JSON.parse(localStorage.getItem('vsg_user_cycles')) || [];
     let currentDocType = 'INVOICE';
-    let editingDocNumber = null;
+    let editingDocOriginalNumber = null;
+    let editingDocOriginalCycle = null;
     let editingCustomerId = null;
     let historyFilter = 'ALL';
     let paymentSelectedCustomer = 'ALL';
@@ -987,8 +1025,44 @@
     let selectedCycle = calculateCycle(new Date());
     let activeInvoiceCycle = calculateCycle(new Date());
     let isDiscountActive = false;
+    let isInternalShiftRunning = false;
 
-    // Strict Date Formatter to DD-MM-YYYY
+    applyTheme(profile.theme || 'light');
+
+    function applyTheme(theme) {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+        const bLight = document.getElementById('themeBtnLight');
+        const bDark = document.getElementById('themeBtnDark');
+        if (bLight && bDark) {
+          bDark.className = "px-3 py-1 text-xs font-bold rounded-md bg-slate-800 text-white shadow-sm";
+          bLight.className = "px-3 py-1 text-xs font-bold rounded-md text-slate-500 hover:text-slate-800";
+        }
+      } else {
+        document.documentElement.classList.remove('dark');
+        const bLight = document.getElementById('themeBtnLight');
+        const bDark = document.getElementById('themeBtnDark');
+        if (bLight && bDark) {
+          bLight.className = "px-3 py-1 text-xs font-bold rounded-md bg-white text-slate-900 shadow-sm";
+          bDark.className = "px-3 py-1 text-xs font-bold rounded-md text-slate-600 hover:text-slate-900";
+        }
+      }
+    }
+
+    function setAppTheme(theme) {
+      profile.theme = theme;
+      localStorage.setItem('vsg_company_profile', JSON.stringify(profile));
+      if (isCloudActive) {
+        db.collection("settings").doc("profile").set(profile, { merge: true });
+      }
+      applyTheme(theme);
+    }
+
+    function toggleAppTheme() {
+      const newTheme = (profile.theme === 'dark') ? 'light' : 'dark';
+      setAppTheme(newTheme);
+    }
+
     function formatDisplayDate(dateStr) {
       if (!dateStr) return '-';
       const parts = dateStr.split('-');
@@ -1053,10 +1127,11 @@
     }
 
     // ==========================================
-    // 2. CLOUD FIRESTORE REALTIME SYNC
+    // 2. REALTIME CLOUD LISTENERS & FAST REFRESH
     // ==========================================
     function listenCloudSync() {
       db.collection("documents").onSnapshot((snapshot) => {
+        if (isInternalShiftRunning) return; // Prevent intermediate flickering during batch shifts
         const docs = [];
         snapshot.forEach((d) => docs.push(d.data()));
         documents = docs;
@@ -1065,7 +1140,7 @@
         populatePaymentCustomerFilter();
         populatePaymentCycleFilter();
         renderPaymentLedger();
-        setNextDocumentNumber();
+        if (!editingDocOriginalNumber) setNextDocumentNumber();
         populateCycleDropdown();
       });
 
@@ -1091,8 +1166,50 @@
           profile = docSnap.data();
           localStorage.setItem('vsg_company_profile', JSON.stringify(profile));
           loadProfileToUI();
+          applyTheme(profile.theme || 'light');
         }
       });
+    }
+
+    async function manualRefreshData() {
+      const icon = document.getElementById('refreshIcon');
+      if (icon) icon.classList.add('spin-active');
+      
+      try {
+        if (isCloudActive) {
+          const docSnap = await db.collection("documents").get();
+          const docs = [];
+          docSnap.forEach(d => docs.push(d.data()));
+          documents = docs;
+          localStorage.setItem('vsg_documents', JSON.stringify(documents));
+
+          const custSnap = await db.collection("customers").get();
+          const custs = [];
+          custSnap.forEach(d => custs.push(d.data()));
+          customers = custs;
+          localStorage.setItem('vsg_customers', JSON.stringify(customers));
+
+          const paySnap = await db.collection("payments").get();
+          const pays = [];
+          paySnap.forEach(d => pays.push(d.data()));
+          payments = pays;
+          localStorage.setItem('vsg_payments', JSON.stringify(payments));
+        }
+        
+        populateCycleDropdown();
+        renderCustomers();
+        populatePaymentCustomerFilter();
+        populatePaymentCycleFilter();
+        renderHistory();
+        renderPaymentLedger();
+        setNextDocumentNumber();
+      } catch (err) {
+        console.error("Refresh error:", err);
+      } finally {
+        if (icon) {
+          setTimeout(() => icon.classList.remove('spin-active'), 500);
+        }
+      }
     }
 
     function handleDateChange(val) {
@@ -1100,12 +1217,12 @@
       activeInvoiceCycle = calculateCycle(val);
       populateCycleDropdown();
       populatePaymentCycleFilter();
-      setNextDocumentNumber();
+      if (!editingDocOriginalNumber) setNextDocumentNumber();
     }
 
     function handleInvoiceCycleChange(cycleVal) {
       activeInvoiceCycle = cycleVal;
-      setNextDocumentNumber();
+      if (!editingDocOriginalNumber) setNextDocumentNumber();
     }
 
     function promptAddNewCycleFromInvoice() {
@@ -1125,7 +1242,7 @@
         populateCycleDropdown();
         populatePaymentCycleFilter();
         setNextDocumentNumber();
-        alert(`New Cycle ${trimmed} activated! Invoice numbering for this cycle will start from 001.`);
+        alert(`New Cycle ${trimmed} activated!`);
       }
     }
 
@@ -1141,7 +1258,7 @@
       deleteCycleHelper(selectedCycle);
     }
 
-    function deleteCycleHelper(cycleToDelete) {
+    async function deleteCycleHelper(cycleToDelete) {
       if (!cycleToDelete) return;
 
       const enteredPass = prompt(`Security Verification: Enter admin password to delete cycle "${cycleToDelete}":`);
@@ -1160,8 +1277,13 @@
         userCycles = userCycles.filter(c => c !== cycleToDelete);
         localStorage.setItem('vsg_user_cycles', JSON.stringify(userCycles));
 
-        if (isCloudActive) {
-          matchingDocs.forEach(d => db.collection("documents").doc(d.number).delete());
+        if (isCloudActive && matchingDocs.length > 0) {
+          const batch = db.batch();
+          matchingDocs.forEach(d => {
+            const ref = db.collection("documents").doc(d.number);
+            batch.delete(ref);
+          });
+          await batch.commit();
         }
 
         documents = documents.filter(d => (d.cycle || calculateCycle(d.date)) !== cycleToDelete);
@@ -1176,7 +1298,7 @@
         renderHistory();
         renderPaymentLedger();
         setNextDocumentNumber();
-        alert(`Cycle "${cycleToDelete}" and associated records deleted successfully.`);
+        alert(`Cycle "${cycleToDelete}" deleted successfully.`);
       }
     }
 
@@ -1235,7 +1357,7 @@
         populatePaymentCycleFilter();
         renderHistory();
         setNextDocumentNumber();
-        alert(`New Cycle ${trimmed} activated! Invoices created in this cycle will start from 001.`);
+        alert(`New Cycle ${trimmed} activated!`);
       }
     }
 
@@ -1300,11 +1422,13 @@
         invNumInput.className = "w-28 px-2.5 py-1 text-xs border border-blue-300 rounded-md bg-white font-mono font-black text-blue-700 focus:ring-2 focus:ring-blue-600 outline-none shadow-inner";
       }
 
-      setNextDocumentNumber();
+      if (!editingDocOriginalNumber) {
+        setNextDocumentNumber();
+      }
     }
 
     function setNextDocumentNumber() {
-      if (editingDocNumber) return;
+      if (editingDocOriginalNumber) return;
       const isQuote = currentDocType === 'QUOTATION';
       const prefix = isQuote ? 'QT-' : '';
       let maxNum = 0;
@@ -1322,7 +1446,6 @@
       document.getElementById('invNumber').value = prefix + String(maxNum + 1).padStart(3, '0');
     }
 
-    // DISCOUNT TOGGLE FUNCTIONS
     function toggleDiscountBox() {
       isDiscountActive = true;
       document.getElementById('discountRow').classList.remove('hidden');
@@ -1341,7 +1464,6 @@
       calculateTotals();
     }
 
-    // LINE ITEM ROW: Description + Quantity & Unit Dropdown (Nos / Sq.Ft / Kg / Set / Mtr / Hours) + Rate
     function addLineItem(desc = '', qty = 1, unit = 'Nos', rate = 0) {
       const tbody = document.getElementById('lineItemsBody');
       const tr = document.createElement('tr');
@@ -1430,7 +1552,6 @@
       }
 
       const taxableAmount = Math.max(0, subtotal - discount);
-
       const sgst = taxableAmount * 0.09;
       const cgst = taxableAmount * 0.09;
       const rawGrand = taxableAmount + sgst + cgst;
@@ -1449,7 +1570,8 @@
     }
 
     function resetInvoiceForm() {
-      editingDocNumber = null;
+      editingDocOriginalNumber = null;
+      editingDocOriginalCycle = null;
       removeDiscount();
       document.getElementById('editingBadge').classList.add('hidden');
       document.getElementById('cancelEditBtn').classList.add('hidden');
@@ -1470,7 +1592,113 @@
       addLineItem();
     }
 
-    function saveAndPrintInvoice() {
+    // ==========================================
+    // 3. FAST ATOMIC BATCH AUTO-SHIFT & INSERT
+    // ==========================================
+    async function renumberAndShiftCycleInvoices(cycleVal) {
+      isInternalShiftRunning = true;
+      const cycleInvoices = documents.filter(d => 
+        (d.type || 'INVOICE') === 'INVOICE' && 
+        ((d.cycle === cycleVal) || (!d.cycle && calculateCycle(d.date) === cycleVal))
+      );
+
+      cycleInvoices.sort((a, b) => {
+        const numA = parseInt((a.number || '').replace('QT-', ''), 10) || 0;
+        const numB = parseInt((b.number || '').replace('QT-', ''), 10) || 0;
+        return numA - numB;
+      });
+
+      const batch = isCloudActive ? db.batch() : null;
+      let hasChanges = false;
+
+      for (let i = 0; i < cycleInvoices.length; i++) {
+        const doc = cycleInvoices[i];
+        const newNum = String(i + 1).padStart(3, '0');
+        if (doc.number !== newNum) {
+          hasChanges = true;
+          const oldNum = doc.number;
+          doc.number = newNum;
+          if (batch) {
+            batch.delete(db.collection("documents").doc(oldNum));
+            batch.set(db.collection("documents").doc(newNum), doc);
+          }
+        }
+      }
+
+      if (hasChanges && batch) {
+        try {
+          await batch.commit();
+        } catch (e) {
+          console.error("Batch shift error:", e);
+        }
+      }
+
+      isInternalShiftRunning = false;
+      localStorage.setItem('vsg_documents', JSON.stringify(documents));
+      renderHistory();
+      renderPaymentLedger();
+      setNextDocumentNumber();
+    }
+
+    async function promptInsertInBetween() {
+      const currentCycle = selectedCycle === 'ALL' ? calculateCycle(new Date()) : selectedCycle;
+      const cycleInvoices = documents.filter(d => 
+        (d.type || 'INVOICE') === 'INVOICE' && 
+        ((d.cycle === currentCycle) || (!d.cycle && calculateCycle(d.date) === currentCycle))
+      );
+
+      cycleInvoices.sort((a, b) => (parseInt(a.number, 10) || 0) - (parseInt(b.number, 10) || 0));
+
+      const posStr = prompt(`Enter position number to insert a new bill in cycle "${currentCycle}" (e.g. enter "3" to place between 2 and 3):`);
+      if (!posStr) return;
+      const pos = parseInt(posStr.trim(), 10);
+      if (isNaN(pos) || pos <= 0) {
+        alert("Please enter a valid positive number!");
+        return;
+      }
+
+      isInternalShiftRunning = true;
+      const toShift = cycleInvoices.filter(d => (parseInt(d.number, 10) || 0) >= pos);
+      toShift.sort((a, b) => (parseInt(b.number, 10) || 0) - (parseInt(a.number, 10) || 0));
+
+      const batch = isCloudActive ? db.batch() : null;
+
+      for (const doc of toShift) {
+        const oldNum = doc.number;
+        const newNum = String((parseInt(oldNum, 10) || 0) + 1).padStart(3, '0');
+        doc.number = newNum;
+        if (batch) {
+          batch.delete(db.collection("documents").doc(oldNum));
+          batch.set(db.collection("documents").doc(newNum), doc);
+        }
+      }
+
+      if (batch && toShift.length > 0) {
+        try {
+          await batch.commit();
+        } catch (e) {
+          console.error("Batch insert error:", e);
+        }
+      }
+
+      isInternalShiftRunning = false;
+      localStorage.setItem('vsg_documents', JSON.stringify(documents));
+      renderHistory();
+      renderPaymentLedger();
+
+      setDocumentType('INVOICE');
+      activeInvoiceCycle = currentCycle;
+      populateCycleDropdown();
+      resetInvoiceForm();
+      document.getElementById('invNumber').value = String(pos).padStart(3, '0');
+      switchTab('invoice');
+      alert(`Invoice sequence shifted! Slot #${String(pos).padStart(3, '0')} is ready to fill and save.`);
+    }
+
+    // ==========================================
+    // 4. DOCUMENT SAVE & OVERWRITE FIX
+    // ==========================================
+    async function saveAndPrintInvoice() {
       const custName = document.getElementById('invCustName').value.trim();
       const docNum = document.getElementById('invNumber').value.trim();
       
@@ -1527,15 +1755,31 @@
         quoteGSTTerms: isQuote ? document.getElementById('quoteGSTTerms').value : ''
       };
 
-      if (isCloudActive) {
-        db.collection("documents").doc(docNum).set(docData);
+      if (editingDocOriginalNumber) {
+        if (editingDocOriginalNumber !== docNum && isCloudActive) {
+          try {
+            await db.collection("documents").doc(editingDocOriginalNumber).delete();
+          } catch (e) {
+            console.warn("Could not delete previous doc:", e);
+          }
+        }
+        const index = documents.findIndex(d => d.number === editingDocOriginalNumber);
+        if (index !== -1) {
+          documents[index] = docData;
+        } else {
+          documents.push(docData);
+        }
+      } else {
+        const existingIdx = documents.findIndex(d => d.number === docNum && (d.cycle || '') === cycleVal && (d.type || 'INVOICE') === currentDocType);
+        if (existingIdx !== -1) {
+          documents[existingIdx] = docData;
+        } else {
+          documents.push(docData);
+        }
       }
 
-      if (editingDocNumber) {
-        const index = documents.findIndex(d => d.number === editingDocNumber);
-        if (index !== -1) documents[index] = docData;
-      } else {
-        documents.push(docData);
+      if (isCloudActive) {
+        await db.collection("documents").doc(docNum).set(docData);
       }
 
       localStorage.setItem('vsg_documents', JSON.stringify(documents));
@@ -1795,7 +2039,7 @@
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = function(evt) {
+      reader.onload = async function(evt) {
         try {
           const parsed = JSON.parse(evt.target.result);
           if (parsed.profile && parsed.documents && parsed.customers) {
@@ -1807,10 +2051,12 @@
               userCycles = parsed.userCycles || [];
 
               if (isCloudActive) {
-                db.collection("settings").doc("profile").set(profile);
-                customers.forEach(c => db.collection("customers").doc(String(c.id)).set(c));
-                documents.forEach(d => db.collection("documents").doc(d.number).set(d));
-                payments.forEach(p => db.collection("payments").doc(String(p.id)).set(p));
+                await db.collection("settings").doc("profile").set(profile);
+                const b = db.batch();
+                customers.forEach(c => b.set(db.collection("customers").doc(String(c.id)), c));
+                documents.forEach(d => b.set(db.collection("documents").doc(d.number), d));
+                payments.forEach(p => b.set(db.collection("payments").doc(String(p.id)), p));
+                await b.commit();
               }
 
               localStorage.setItem('vsg_company_profile', JSON.stringify(profile));
@@ -1820,6 +2066,7 @@
               localStorage.setItem('vsg_user_cycles', JSON.stringify(userCycles));
 
               loadProfileToUI();
+              applyTheme(profile.theme || 'light');
               populateCycleDropdown();
               renderCustomers();
               populatePaymentCustomerFilter();
@@ -1903,7 +2150,7 @@
     }
 
     // ==========================================
-    // 3. TAB 5: RUNNING BALANCE & CYCLE FILTERING
+    // 5. TAB 5: RUNNING BALANCE & LEDGER
     // ==========================================
     function populatePaymentCustomerFilter() {
       const select = document.getElementById('paymentCustFilter');
@@ -2030,13 +2277,11 @@
       let invoicesOnly = documents.filter(d => (d.type || 'INVOICE') === 'INVOICE');
       let paymentsList = [...payments];
 
-      // Apply Year-to-Year Cycle Filter
       if (paymentSelectedCycle !== 'ALL') {
         invoicesOnly = invoicesOnly.filter(d => (d.cycle === paymentSelectedCycle) || (!d.cycle && calculateCycle(d.date) === paymentSelectedCycle));
         paymentsList = paymentsList.filter(p => (p.cycle === paymentSelectedCycle) || (!p.cycle && calculateCycle(p.date) === paymentSelectedCycle));
       }
 
-      // Grand Totals Calculation
       let totalBilledAll = 0;
       let totalPaidAll = 0;
 
@@ -2044,7 +2289,6 @@
       paymentsList.forEach(p => { totalPaidAll += (p.amount || 0); });
       let totalBalanceAll = totalBilledAll - totalPaidAll;
 
-      // MODE A: ALL CUSTOMERS VIEW
       if (paymentSelectedCustomer === 'ALL') {
         allBox.classList.remove('hidden');
         indBox.classList.add('hidden');
@@ -2106,7 +2350,6 @@
         });
 
       } else {
-        // MODE B: INDIVIDUAL CUSTOMER VIEW
         allBox.classList.add('hidden');
         indBox.classList.remove('hidden');
         payRecordBox.classList.remove('hidden');
@@ -2192,7 +2435,7 @@
     }
 
     // ==========================================
-    // 4. PRINT / PDF OFFICIAL STATEMENT
+    // 6. PRINT OFFICIAL STATEMENT
     // ==========================================
     function printPaymentLedgerStatement() {
       const stmtWrapper = document.getElementById('printablePaymentStatementWrapper');
@@ -2231,7 +2474,6 @@
         paymentsList = paymentsList.filter(p => (p.cycle === paymentSelectedCycle) || (!p.cycle && calculateCycle(p.date) === paymentSelectedCycle));
       }
 
-      // PRINT MODE A: ALL CUSTOMERS
       if (paymentSelectedCustomer === 'ALL') {
         document.getElementById('stmtReportTitle').textContent = "ALL CUSTOMERS OUTSTANDING & PAYMENT AUDIT SUMMARY";
         document.getElementById('stmtCustomerName').textContent = `ALL ACTIVE CLIENTS ${paymentSelectedCycle !== 'ALL' ? '(' + paymentSelectedCycle + ')' : ''}`;
@@ -2286,7 +2528,6 @@
         document.getElementById('stmtSumBalance').textContent = `₹${(totalBilled - totalPaid).toFixed(2)}`;
 
       } else {
-        // PRINT MODE B: INDIVIDUAL CUSTOMER
         document.getElementById('stmtReportTitle').textContent = "CUSTOMER ACCOUNT STATEMENT & RUNNING BALANCE";
         document.getElementById('stmtCustomerName').textContent = `${paymentSelectedCustomer} ${paymentSelectedCycle !== 'ALL' ? '(' + paymentSelectedCycle + ')' : ''}`;
 
@@ -2356,10 +2597,12 @@
       const doc = documents.find(d => d.number === num);
       if (!doc) return;
 
-      editingDocNumber = doc.number;
+      editingDocOriginalNumber = doc.number;
+      editingDocOriginalCycle = doc.cycle || calculateCycle(doc.date);
       setDocumentType(doc.type || 'INVOICE');
 
       document.getElementById('editingBadge').classList.remove('hidden');
+      document.getElementById('editingDocName').textContent = `${doc.number}`;
       document.getElementById('cancelEditBtn').classList.remove('hidden');
 
       document.getElementById('invNumber').value = doc.number;
@@ -2406,18 +2649,26 @@
       switchTab('invoice');
     }
 
-    function deleteDocument(num) {
-      if (confirm(`Are you sure you want to permanently delete document #${num}?`)) {
+    async function deleteDocument(num) {
+      if (confirm(`Are you sure you want to permanently delete document #${num}? Remaining documents will automatically shift to close the gap.`)) {
+        const docToDelete = documents.find(d => d.number === num);
+        const docCycle = docToDelete ? (docToDelete.cycle || calculateCycle(docToDelete.date)) : null;
+
         if (isCloudActive) {
-          db.collection("documents").doc(num).delete();
+          await db.collection("documents").doc(num).delete();
         }
         documents = documents.filter(d => d.number !== num);
         localStorage.setItem('vsg_documents', JSON.stringify(documents));
-        renderHistory();
-        populatePaymentCustomerFilter();
-        populatePaymentCycleFilter();
-        renderPaymentLedger();
-        setNextDocumentNumber();
+
+        if (docToDelete && (docToDelete.type || 'INVOICE') === 'INVOICE' && docCycle) {
+          await renumberAndShiftCycleInvoices(docCycle);
+        } else {
+          renderHistory();
+          populatePaymentCustomerFilter();
+          populatePaymentCycleFilter();
+          renderPaymentLedger();
+          setNextDocumentNumber();
+        }
       }
     }
 
@@ -2574,7 +2825,7 @@
     }
 
     // ==========================================
-    // 5. CUSTOMER MANAGEMENT (ADD, EDIT, DELETE)
+    // 7. CUSTOMER MANAGEMENT
     // ==========================================
     function saveCustomer(e) {
       e.preventDefault();
