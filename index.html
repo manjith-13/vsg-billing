@@ -121,6 +121,7 @@
         <button onclick="switchTab('customers')" id="btnNavCustomers" class="px-4 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white shadow-md transition">Customers</button>
         <button onclick="switchTab('history')" id="btnNavHistory" class="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md transition">History</button>
         <button onclick="switchTab('payment')" id="btnNavPayment" class="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-md transition">Payment Ledger</button>
+        <button onclick="switchTab('accounts')" id="btnNavAccounts" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-md transition">Accounts</button>
         <button onclick="switchTab('profile')" id="btnNavProfile" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition">Profile & Backup</button>
         <button onclick="toggleAppTheme()" class="px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition" title="Toggle Theme">🌙/☀️</button>
         <button onclick="handleLogout()" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white ml-2 shadow-md transition">Logout</button>
@@ -570,6 +571,21 @@
             </div>
           </div>
 
+          <!-- OPENING BALANCE BOX -->
+          <div id="openingBalanceBox" class="bg-amber-50 border border-amber-200 p-4 rounded-xl hidden">
+            <h3 class="text-xs font-black uppercase tracking-wider text-amber-900 flex items-center gap-1.5 mb-3">
+              <span>📋</span> Opening Balance (Last Year / Carried Forward) for <span id="obCustomerNameLabel" class="underline ml-1"></span>
+            </h3>
+            <div class="flex flex-wrap items-end gap-3">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Opening Balance (₹)</label>
+                <input type="number" step="0.01" id="openingBalanceInput" placeholder="0.00" class="w-48 px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-mono font-bold text-amber-800">
+              </div>
+              <button onclick="saveOpeningBalance()" class="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-sm transition">Save Opening Balance</button>
+              <p class="text-[11px] text-slate-500 w-full sm:w-auto">Enter any balance carried forward from last year. It's automatically added to this customer's current balance below.</p>
+            </div>
+          </div>
+
           <!-- PAYMENT RECORDING BOX -->
           <div id="paymentRecordBox" class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 rounded-xl hidden">
             <div class="flex items-center justify-between mb-3">
@@ -655,6 +671,250 @@
         </div>
       </section>
 
+      <!-- ============ ACCOUNTS TAB ============ -->
+      <section id="tabAccounts" class="hidden space-y-6 no-print">
+        <div class="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 p-6 max-w-6xl mx-auto space-y-6">
+
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 gap-4">
+            <div>
+              <h2 class="text-base font-extrabold text-slate-800 tracking-tight">Accounts & Financial Reports</h2>
+              <p class="text-xs text-slate-500">Expenses, profit & loss, balance sheet, GST summary, aging and audit log.</p>
+            </div>
+            <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+              <span class="text-xs font-bold text-slate-600 pl-1">Cycle:</span>
+              <select id="acctsCycleFilter" onchange="onAcctsCycleChange()" class="px-2.5 py-1 text-xs border rounded-lg bg-white font-mono font-bold text-rose-700 outline-none">
+                <option value="ALL">All Cycles</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Sub tab pills -->
+          <div class="flex flex-wrap gap-2" id="acctsSubNav">
+            <button onclick="switchAccountsSubTab('expenses')" id="acctsBtnExpenses" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all shadow-sm bg-rose-600 text-white">Expenses</button>
+            <button onclick="switchAccountsSubTab('pnl')" id="acctsBtnPnl" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900 bg-slate-100">Profit & Loss</button>
+            <button onclick="switchAccountsSubTab('balance')" id="acctsBtnBalance" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900 bg-slate-100">Balance Sheet</button>
+            <button onclick="switchAccountsSubTab('gst')" id="acctsBtnGst" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900 bg-slate-100">GST Summary</button>
+            <button onclick="switchAccountsSubTab('aging')" id="acctsBtnAging" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900 bg-slate-100">Aging Report</button>
+            <button onclick="switchAccountsSubTab('audit')" id="acctsBtnAudit" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900 bg-slate-100">Audit Log</button>
+          </div>
+
+          <!-- ===== EXPENSES SUB-TAB ===== -->
+          <div id="acctsPaneExpenses" class="space-y-5">
+            <div class="bg-gradient-to-r from-rose-50 to-orange-50 border border-rose-200 p-4 rounded-xl">
+              <h3 class="text-xs font-black uppercase tracking-wider text-rose-900 flex items-center gap-1.5 mb-3">
+                <span>💸</span> <span id="expenseFormHeading">Add New Expense / Purchase</span>
+              </h3>
+              <form id="expenseForm" onsubmit="handleAddExpense(event)" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
+                <input type="hidden" id="expenseEditId" value="">
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-700 mb-1">Date</label>
+                  <input type="date" id="expenseDate" required class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-medium text-slate-800">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-700 mb-1">Category</label>
+                  <select id="expenseCategory" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-semibold text-slate-800">
+                    <option>Raw Material</option>
+                    <option>Rent</option>
+                    <option>Salaries & Wages</option>
+                    <option>Electricity</option>
+                    <option>Transport / Freight</option>
+                    <option>Repairs & Maintenance</option>
+                    <option>Office / Admin</option>
+                    <option>Tax / Statutory</option>
+                    <option>Miscellaneous</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-700 mb-1">Paid To / Vendor</label>
+                  <input type="text" id="expensePaidTo" placeholder="Vendor / Supplier name" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-medium text-slate-800">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-700 mb-1">Amount (₹)</label>
+                  <input type="number" step="0.01" id="expenseAmount" placeholder="e.g. 5000" required class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-mono font-bold text-rose-700">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-700 mb-1">GST Paid (₹) <span class="font-normal normal-case">(if any)</span></label>
+                  <input type="number" step="0.01" id="expenseGst" placeholder="0.00" value="0" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-mono font-bold text-slate-700">
+                </div>
+                <div>
+                  <label class="block text-[11px] font-bold text-slate-700 mb-1">Remarks</label>
+                  <div class="flex gap-2">
+                    <input type="text" id="expenseRemarks" placeholder="Optional note" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-medium text-slate-800">
+                    <button type="submit" class="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm transition whitespace-nowrap" id="expenseSubmitBtn">+ Save</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                    <th class="py-3 px-3 w-12 text-center">SL</th>
+                    <th class="py-3 px-3 w-28">Date</th>
+                    <th class="py-3 px-3">Category</th>
+                    <th class="py-3 px-3">Paid To</th>
+                    <th class="py-3 px-3">Remarks</th>
+                    <th class="py-3 px-3 text-right">GST Paid</th>
+                    <th class="py-3 px-3 text-right">Amount (₹)</th>
+                    <th class="py-3 px-3 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="expenseTableBody" class="divide-y divide-slate-100"></tbody>
+                <tfoot>
+                  <tr class="bg-rose-50 font-black text-rose-900 border-t-2 border-rose-200">
+                    <td colspan="6" class="py-3 px-3 text-right uppercase text-[11px] tracking-wider">Total Expenses (selected cycle)</td>
+                    <td id="expenseGrandTotal" class="py-3 px-3 text-right font-mono">₹0.00</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- ===== PROFIT & LOSS SUB-TAB ===== -->
+          <div id="acctsPanePnl" class="hidden space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="p-4 bg-emerald-50/80 border border-emerald-200 rounded-xl">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Total Income (Billed)</p>
+                <p id="pnlIncome" class="text-xl font-black font-mono text-emerald-700 mt-1">₹0.00</p>
+              </div>
+              <div class="p-4 bg-rose-50/80 border border-rose-200 rounded-xl">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-rose-800">Total Expenses</p>
+                <p id="pnlExpenses" class="text-xl font-black font-mono text-rose-700 mt-1">₹0.00</p>
+              </div>
+              <div class="p-4 bg-blue-50/80 border border-blue-200 rounded-xl">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-blue-800">Net Profit / Loss</p>
+                <p id="pnlNet" class="text-xl font-black font-mono text-blue-700 mt-1">₹0.00</p>
+              </div>
+            </div>
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                    <th class="py-3 px-3">Expense Category</th>
+                    <th class="py-3 px-3 text-right">Amount (₹)</th>
+                    <th class="py-3 px-3 text-right">% of Total Expense</th>
+                  </tr>
+                </thead>
+                <tbody id="pnlCategoryTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- ===== BALANCE SHEET SUB-TAB ===== -->
+          <div id="acctsPaneBalance" class="hidden space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="border border-slate-200 rounded-xl overflow-hidden">
+                <div class="bg-emerald-600 text-white text-xs font-black uppercase tracking-wider px-4 py-2.5">Assets</div>
+                <table class="w-full text-left text-xs border-collapse">
+                  <tbody id="balanceAssetsBody" class="divide-y divide-slate-100"></tbody>
+                  <tfoot>
+                    <tr class="bg-emerald-50 font-black text-emerald-900 border-t-2 border-emerald-200">
+                      <td class="py-3 px-4 uppercase text-[11px] tracking-wider">Total Assets</td>
+                      <td id="balanceTotalAssets" class="py-3 px-4 text-right font-mono">₹0.00</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <div class="border border-slate-200 rounded-xl overflow-hidden">
+                <div class="bg-rose-600 text-white text-xs font-black uppercase tracking-wider px-4 py-2.5">Liabilities</div>
+                <table class="w-full text-left text-xs border-collapse">
+                  <tbody id="balanceLiabilitiesBody" class="divide-y divide-slate-100"></tbody>
+                  <tfoot>
+                    <tr class="bg-rose-50 font-black text-rose-900 border-t-2 border-rose-200">
+                      <td class="py-3 px-4 uppercase text-[11px] tracking-wider">Total Liabilities</td>
+                      <td id="balanceTotalLiabilities" class="py-3 px-4 text-right font-mono">₹0.00</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+            <div class="p-4 bg-blue-50/80 border border-blue-200 rounded-xl flex justify-between items-center">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-blue-800">Net Worth (Assets − Liabilities)</p>
+              <p id="balanceNetWorth" class="text-xl font-black font-mono text-blue-700">₹0.00</p>
+            </div>
+          </div>
+
+          <!-- ===== GST SUMMARY SUB-TAB ===== -->
+          <div id="acctsPaneGst" class="hidden space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="p-4 bg-emerald-50/80 border border-emerald-200 rounded-xl">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Output Tax (Collected on Sales)</p>
+                <p id="gstOutput" class="text-xl font-black font-mono text-emerald-700 mt-1">₹0.00</p>
+              </div>
+              <div class="p-4 bg-amber-50/80 border border-amber-200 rounded-xl">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-amber-800">Input Tax Credit (Paid on Purchases)</p>
+                <p id="gstInput" class="text-xl font-black font-mono text-amber-700 mt-1">₹0.00</p>
+              </div>
+              <div class="p-4 bg-rose-50/80 border border-rose-200 rounded-xl">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-rose-800">Net GST Payable</p>
+                <p id="gstNetPayable" class="text-xl font-black font-mono text-rose-700 mt-1">₹0.00</p>
+              </div>
+            </div>
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                    <th class="py-3 px-3">Component</th>
+                    <th class="py-3 px-3 text-right">SGST 9%</th>
+                    <th class="py-3 px-3 text-right">CGST 9%</th>
+                    <th class="py-3 px-3 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody id="gstBreakdownBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+            <p class="text-[11px] text-slate-500">Note: Input tax credit here is based on GST amounts you enter manually against each expense/purchase. This is a working estimate — please verify against actual purchase invoices before filing.</p>
+          </div>
+
+          <!-- ===== AGING REPORT SUB-TAB ===== -->
+          <div id="acctsPaneAging" class="hidden space-y-5">
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                    <th class="py-3 px-3">Customer</th>
+                    <th class="py-3 px-3 text-right">0-30 Days</th>
+                    <th class="py-3 px-3 text-right">31-60 Days</th>
+                    <th class="py-3 px-3 text-right">60+ Days</th>
+                    <th class="py-3 px-3 text-right font-black">Total Outstanding</th>
+                  </tr>
+                </thead>
+                <tbody id="agingTableBody" class="divide-y divide-slate-100"></tbody>
+                <tfoot>
+                  <tr class="bg-amber-50 font-black text-amber-900 border-t-2 border-amber-200">
+                    <td class="py-3 px-3 uppercase text-[11px] tracking-wider">Total</td>
+                    <td id="aging0Total" class="py-3 px-3 text-right font-mono">₹0.00</td>
+                    <td id="aging30Total" class="py-3 px-3 text-right font-mono">₹0.00</td>
+                    <td id="aging60Total" class="py-3 px-3 text-right font-mono">₹0.00</td>
+                    <td id="agingGrandTotal" class="py-3 px-3 text-right font-mono">₹0.00</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+          <!-- ===== AUDIT LOG SUB-TAB ===== -->
+          <div id="acctsPaneAudit" class="hidden space-y-5">
+            <p class="text-xs text-slate-500">Record of edits and deletions across invoices, quotations, payments and expenses. Kept for audit purposes.</p>
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                    <th class="py-3 px-3 w-40">Timestamp</th>
+                    <th class="py-3 px-3 w-28">Action</th>
+                    <th class="py-3 px-3">Details</th>
+                  </tr>
+                </thead>
+                <tbody id="auditLogTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -666,13 +926,12 @@
           <img id="printLogoLeft" src="" class="max-h-16 max-w-full object-contain hidden" alt="Logo">
           <div id="logoLeftPlaceholder" class="w-12 h-12 rounded-full border border-slate-300 flex items-center justify-center text-[10px] text-slate-400 font-bold">LOGO</div>
         </div>
-        <div class="text-center flex-1">
+        <div class="text-center flex-1 flex flex-col items-center justify-center gap-1">
+          <img id="printLogoRight" src="" class="max-h-14 max-w-[90px] object-contain hidden" alt="Emblem">
+          <div id="logoRightPlaceholder" class="w-10 h-10 border border-slate-300 flex items-center justify-center text-[9px] text-slate-400 font-bold">EMBLEM</div>
           <h1 id="printCompanyName" class="text-3xl font-black tracking-widest text-black font-brand uppercase">VSG Industries</h1>
         </div>
-        <div class="w-20 h-16 flex items-center justify-center">
-          <img id="printLogoRight" src="" class="max-h-16 max-w-full object-contain hidden" alt="Emblem">
-          <div id="logoRightPlaceholder" class="w-10 h-10 border border-slate-300 flex items-center justify-center text-[9px] text-slate-400 font-bold">EMBLEM</div>
-        </div>
+        <div class="w-20 h-16"></div>
       </div>
 
       <div class="grid grid-cols-12 border-b-2 border-black text-[13px] font-bold">
@@ -946,7 +1205,8 @@
         <tbody id="stmtTableBody"></tbody>
       </table>
 
-      <div class="grid grid-cols-3 gap-2 border-2 border-black p-2.5 bg-slate-50 text-[12px] font-bold mb-6">
+      <div class="grid grid-cols-4 gap-2 border-2 border-black p-2.5 bg-slate-50 text-[12px] font-bold mb-6">
+        <div>Opening Balance: <span id="stmtSumOpening" class="font-mono font-black text-amber-800 ml-1">₹0.00</span></div>
         <div>Total Billed: <span id="stmtSumBilled" class="font-mono font-black text-slate-900 ml-1">₹0.00</span></div>
         <div>Total Received: <span id="stmtSumPaid" class="font-mono font-black text-emerald-800 ml-1">₹0.00</span></div>
         <div>Balance Due: <span id="stmtSumBalance" class="font-mono font-black text-rose-800 ml-1">₹0.00</span></div>
@@ -1014,7 +1274,13 @@
     let customers = JSON.parse(localStorage.getItem('vsg_customers')) || [];
     let documents = JSON.parse(localStorage.getItem('vsg_documents')) || [];
     let payments = JSON.parse(localStorage.getItem('vsg_payments')) || [];
+    let expenses = JSON.parse(localStorage.getItem('vsg_expenses')) || [];
+    let auditLog = JSON.parse(localStorage.getItem('vsg_audit_log')) || [];
+    let openingBalances = JSON.parse(localStorage.getItem('vsg_opening_balances')) || {};
     let userCycles = JSON.parse(localStorage.getItem('vsg_user_cycles')) || [];
+    let accountsSubTab = 'expenses';
+    let acctsSelectedCycle = 'ALL';
+    let editingExpenseId = null;
     let currentDocType = 'INVOICE';
     let editingDocOriginalNumber = null;
     let editingDocOriginalCycle = null;
@@ -1104,6 +1370,7 @@
     function initApp() {
       document.getElementById('invDate').valueAsDate = new Date();
       document.getElementById('payEntryDate').valueAsDate = new Date();
+      document.getElementById('expenseDate').valueAsDate = new Date();
       activeInvoiceCycle = calculateCycle(new Date());
       loadProfileToUI();
       populateCycleDropdown();
@@ -1169,6 +1436,37 @@
           applyTheme(profile.theme || 'light');
         }
       });
+
+      db.collection("settings").doc("openingBalances").onSnapshot((docSnap) => {
+        if (docSnap.exists) {
+          openingBalances = docSnap.data() || {};
+          localStorage.setItem('vsg_opening_balances', JSON.stringify(openingBalances));
+          if (document.getElementById('tabPayment') && !document.getElementById('tabPayment').classList.contains('hidden')) {
+            renderPaymentLedger();
+          }
+        }
+      });
+
+      db.collection("expenses").onSnapshot((snapshot) => {
+        const exps = [];
+        snapshot.forEach((d) => exps.push(d.data()));
+        expenses = exps;
+        localStorage.setItem('vsg_expenses', JSON.stringify(expenses));
+        if (document.getElementById('tabAccounts') && !document.getElementById('tabAccounts').classList.contains('hidden')) {
+          renderAccountsSubTab();
+        }
+      });
+
+      db.collection("audit_log").onSnapshot((snapshot) => {
+        const logs = [];
+        snapshot.forEach((d) => logs.push(d.data()));
+        logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        auditLog = logs;
+        localStorage.setItem('vsg_audit_log', JSON.stringify(auditLog));
+        if (accountsSubTab === 'audit' && document.getElementById('tabAccounts') && !document.getElementById('tabAccounts').classList.contains('hidden')) {
+          renderAuditLog();
+        }
+      });
     }
 
     async function manualRefreshData() {
@@ -1194,6 +1492,23 @@
           paySnap.forEach(d => pays.push(d.data()));
           payments = pays;
           localStorage.setItem('vsg_payments', JSON.stringify(payments));
+
+          const expSnap = await db.collection("expenses").get();
+          const exps = [];
+          expSnap.forEach(d => exps.push(d.data()));
+          expenses = exps;
+          localStorage.setItem('vsg_expenses', JSON.stringify(expenses));
+
+          const auditSnap = await db.collection("audit_log").get();
+          const logs = [];
+          auditSnap.forEach(d => logs.push(d.data()));
+          logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+          auditLog = logs;
+          localStorage.setItem('vsg_audit_log', JSON.stringify(auditLog));
+
+          const obDoc = await db.collection("settings").doc("openingBalances").get();
+          openingBalances = obDoc.exists ? (obDoc.data() || {}) : {};
+          localStorage.setItem('vsg_opening_balances', JSON.stringify(openingBalances));
         }
         
         populateCycleDropdown();
@@ -1203,6 +1518,10 @@
         renderHistory();
         renderPaymentLedger();
         setNextDocumentNumber();
+        if (document.getElementById('tabAccounts') && !document.getElementById('tabAccounts').classList.contains('hidden')) {
+          populateAcctsCycleFilter();
+          renderAccountsSubTab();
+        }
       } catch (err) {
         console.error("Refresh error:", err);
       } finally {
@@ -1276,6 +1595,7 @@
       if (confirm(confirmMsg)) {
         userCycles = userCycles.filter(c => c !== cycleToDelete);
         localStorage.setItem('vsg_user_cycles', JSON.stringify(userCycles));
+        logAudit('CYCLE_DELETE', `Cycle "${cycleToDelete}" deleted — ${matchingDocs.length} invoice(s) removed`);
 
         if (isCloudActive && matchingDocs.length > 0) {
           const batch = db.batch();
@@ -1367,7 +1687,7 @@
     }
 
     function switchTab(tab) {
-      ['tabInvoice', 'tabProfile', 'tabCustomers', 'tabHistory', 'tabPayment'].forEach(id => {
+      ['tabInvoice', 'tabProfile', 'tabCustomers', 'tabHistory', 'tabPayment', 'tabAccounts'].forEach(id => {
         document.getElementById(id).classList.add('hidden');
       });
       if (tab === 'invoice') document.getElementById('tabInvoice').classList.remove('hidden');
@@ -1383,6 +1703,12 @@
         populatePaymentCustomerFilter();
         populatePaymentCycleFilter();
         renderPaymentLedger();
+      }
+      if (tab === 'accounts') {
+        document.getElementById('tabAccounts').classList.remove('hidden');
+        document.getElementById('expenseDate').valueAsDate = document.getElementById('expenseDate').valueAsDate || new Date();
+        populateAcctsCycleFilter();
+        switchAccountsSubTab(accountsSubTab);
       }
     }
 
@@ -1783,6 +2109,7 @@
       }
 
       localStorage.setItem('vsg_documents', JSON.stringify(documents));
+      logAudit(editingDocOriginalNumber ? 'INVOICE_EDIT' : 'INVOICE_SAVE', `${docData.type} #${docNum} — ${custName} — ₹${(docData.total || 0).toFixed(2)}`);
       populatePrintTemplates(docData);
       window.print();
       cleanupPrintTemplates();
@@ -2022,6 +2349,9 @@
         customers: customers,
         documents: documents,
         payments: payments,
+        expenses: expenses,
+        auditLog: auditLog,
+        openingBalances: openingBalances,
         userCycles: userCycles
       };
 
@@ -2048,14 +2378,19 @@
               documents = parsed.documents;
               customers = parsed.customers;
               payments = parsed.payments || [];
+              expenses = parsed.expenses || [];
+              auditLog = parsed.auditLog || [];
+              openingBalances = parsed.openingBalances || {};
               userCycles = parsed.userCycles || [];
 
               if (isCloudActive) {
                 await db.collection("settings").doc("profile").set(profile);
+                await db.collection("settings").doc("openingBalances").set(openingBalances);
                 const b = db.batch();
                 customers.forEach(c => b.set(db.collection("customers").doc(String(c.id)), c));
                 documents.forEach(d => b.set(db.collection("documents").doc(d.number), d));
                 payments.forEach(p => b.set(db.collection("payments").doc(String(p.id)), p));
+                expenses.forEach(x => b.set(db.collection("expenses").doc(String(x.id)), x));
                 await b.commit();
               }
 
@@ -2063,6 +2398,9 @@
               localStorage.setItem('vsg_documents', JSON.stringify(documents));
               localStorage.setItem('vsg_customers', JSON.stringify(customers));
               localStorage.setItem('vsg_payments', JSON.stringify(payments));
+              localStorage.setItem('vsg_expenses', JSON.stringify(expenses));
+              localStorage.setItem('vsg_audit_log', JSON.stringify(auditLog));
+              localStorage.setItem('vsg_opening_balances', JSON.stringify(openingBalances));
               localStorage.setItem('vsg_user_cycles', JSON.stringify(userCycles));
 
               loadProfileToUI();
@@ -2074,6 +2412,7 @@
               renderHistory();
               renderPaymentLedger();
               setNextDocumentNumber();
+              logAudit('RESTORE_BACKUP', `Backup file restored — ${documents.length} documents, ${customers.length} customers, ${payments.length} payments, ${expenses.length} expenses`);
               alert("Data restored and synced to cloud successfully!");
             }
           } else {
@@ -2221,6 +2560,23 @@
       renderPaymentLedger();
     }
 
+    async function saveOpeningBalance() {
+      const customer = paymentSelectedCustomer;
+      if (!customer || customer === 'ALL') return;
+      const val = parseFloat(document.getElementById('openingBalanceInput').value) || 0;
+
+      openingBalances[customer] = val;
+      localStorage.setItem('vsg_opening_balances', JSON.stringify(openingBalances));
+
+      if (isCloudActive) {
+        try { await db.collection("settings").doc("openingBalances").set(openingBalances); }
+        catch (err) { console.warn("Opening balance cloud sync failed:", err); }
+      }
+
+      logAudit('OPENING_BALANCE_SET', `Opening balance for ${customer} set to ₹${val.toFixed(2)}`);
+      renderPaymentLedger();
+    }
+
     function handleRecordPayment(e) {
       e.preventDefault();
       const customer = paymentSelectedCustomer;
@@ -2250,6 +2606,7 @@
 
       payments.push(newPayment);
       localStorage.setItem('vsg_payments', JSON.stringify(payments));
+      logAudit('PAYMENT_ADD', `₹${amount.toFixed(2)} received from ${customer} via ${mode} on ${formatDisplayDate(date)}`);
 
       document.getElementById('payEntryAmount').value = '';
       document.getElementById('payEntryRef').value = '';
@@ -2258,11 +2615,13 @@
 
     function deletePaymentRecord(id) {
       if (confirm("Delete this payment record? This will adjust the balance back.")) {
+        const pay = payments.find(p => p.id === id);
         if (isCloudActive) {
           db.collection("payments").doc(String(id)).delete();
         }
         payments = payments.filter(p => p.id !== id);
         localStorage.setItem('vsg_payments', JSON.stringify(payments));
+        if (pay) logAudit('PAYMENT_DELETE', `₹${(pay.amount || 0).toFixed(2)} payment from ${pay.customer} on ${formatDisplayDate(pay.date)} deleted`);
         renderPaymentLedger();
       }
     }
@@ -2287,12 +2646,15 @@
 
       invoicesOnly.forEach(d => { totalBilledAll += (d.total || 0); });
       paymentsList.forEach(p => { totalPaidAll += (p.amount || 0); });
-      let totalBalanceAll = totalBilledAll - totalPaidAll;
+      let totalOpeningAll = 0;
+      Object.values(openingBalances).forEach(v => { totalOpeningAll += (v || 0); });
+      let totalBalanceAll = totalBilledAll - totalPaidAll + totalOpeningAll;
 
       if (paymentSelectedCustomer === 'ALL') {
         allBox.classList.remove('hidden');
         indBox.classList.add('hidden');
         payRecordBox.classList.add('hidden');
+        document.getElementById('openingBalanceBox').classList.add('hidden');
 
         const cycleSuffix = paymentSelectedCycle === 'ALL' ? '' : ` [${paymentSelectedCycle}]`;
         document.getElementById('statLabelTotal').textContent = `Total Billed (All Customers)${cycleSuffix}`;
@@ -2330,7 +2692,8 @@
 
         names.forEach((name, idx) => {
           const stat = customerStats[name];
-          stat.balance = stat.billed - stat.paid;
+          const ob = openingBalances[name] || 0;
+          stat.balance = stat.billed - stat.paid + ob;
 
           const tr = document.createElement('tr');
           tr.className = 'hover:bg-slate-50 transition border-b';
@@ -2353,9 +2716,13 @@
         allBox.classList.add('hidden');
         indBox.classList.remove('hidden');
         payRecordBox.classList.remove('hidden');
+        document.getElementById('openingBalanceBox').classList.remove('hidden');
 
         document.getElementById('payEntryCustomerNameLabel').textContent = paymentSelectedCustomer;
         document.getElementById('individualStatementHeading').textContent = `Customer Statement: ${paymentSelectedCustomer}`;
+        document.getElementById('obCustomerNameLabel').textContent = paymentSelectedCustomer;
+        const openingBal = openingBalances[paymentSelectedCustomer] || 0;
+        document.getElementById('openingBalanceInput').value = openingBal || '';
 
         const custInvoices = invoicesOnly.filter(d => (d.customer || '').trim() === paymentSelectedCustomer);
         const custPayments = paymentsList.filter(p => (p.customer || '').trim() === paymentSelectedCustomer);
@@ -2365,7 +2732,8 @@
 
         custInvoices.forEach(d => { custTotalBilled += (d.total || 0); });
         custPayments.forEach(p => { custTotalPaid += (p.amount || 0); });
-        let custBalance = custTotalBilled - custTotalPaid;
+        let custBalance = custTotalBilled - custTotalPaid + openingBal;
+
 
         const cycleSuffix = paymentSelectedCycle === 'ALL' ? '' : ` [${paymentSelectedCycle}]`;
         document.getElementById('statLabelTotal').textContent = `Total Billed (${paymentSelectedCustomer})${cycleSuffix}`;
@@ -2405,20 +2773,40 @@
         timeline.sort((a, b) => new Date(a.date) - new Date(b.date));
 
         indTbody.innerHTML = '';
-        if (timeline.length === 0) {
+        if (timeline.length === 0 && openingBal === 0) {
           indTbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400 font-medium">No transactions recorded for ${paymentSelectedCustomer} in selected cycle.</td></tr>`;
           return;
         }
 
-        let runningBal = 0;
+        let runningBal = openingBal;
+        let slCounter = 0;
+
+        if (openingBal !== 0) {
+          slCounter++;
+          const obTr = document.createElement('tr');
+          obTr.className = 'bg-amber-50/60 border-b';
+          obTr.innerHTML = `
+            <td class="py-3 px-3 text-center text-slate-400 font-bold">${slCounter}</td>
+            <td class="py-3 px-3 font-mono font-medium text-slate-700">-</td>
+            <td class="py-3 px-3 font-mono font-bold text-slate-400">-</td>
+            <td class="py-3 px-4 text-amber-800 font-bold">Opening Balance (Carried Forward)</td>
+            <td class="py-3 px-3 text-right font-mono font-bold text-slate-900">-</td>
+            <td class="py-3 px-3 text-right font-mono font-bold text-slate-400">-</td>
+            <td class="py-3 px-3 text-right font-mono font-black text-blue-950">₹${runningBal.toFixed(2)}</td>
+            <td class="py-3 px-3 text-center">-</td>
+          `;
+          indTbody.appendChild(obTr);
+        }
+
         timeline.forEach((item, idx) => {
           runningBal += (item.billed - item.paid);
+          slCounter++;
           const isInv = item.type === 'INVOICE';
 
           const tr = document.createElement('tr');
           tr.className = 'hover:bg-slate-50 transition border-b';
           tr.innerHTML = `
-            <td class="py-3 px-3 text-center text-slate-400 font-bold">${idx + 1}</td>
+            <td class="py-3 px-3 text-center text-slate-400 font-bold">${slCounter}</td>
             <td class="py-3 px-3 font-mono font-medium text-slate-700">${formatDisplayDate(item.date)}</td>
             <td class="py-3 px-3 font-mono font-bold ${isInv ? 'text-blue-700' : 'text-slate-400'}">${item.invNum}</td>
             <td class="py-3 px-4 text-slate-700 font-medium">${item.desc}</td>
@@ -2482,6 +2870,7 @@
           <tr class="bg-slate-100 text-center font-bold border-b border-black">
             <th class="py-2 px-2 border-r border-black w-10">SL</th>
             <th class="py-2 px-4 border-r border-black text-left">Customer / Company Name</th>
+            <th class="py-2 px-3 border-r border-black text-right">Opening Bal (₹)</th>
             <th class="py-2 px-3 border-r border-black text-right">Total Billed (₹)</th>
             <th class="py-2 px-3 border-r border-black text-right">Total Received (₹)</th>
             <th class="py-2 px-3 text-right">Balance Outstanding (₹)</th>
@@ -2503,19 +2892,23 @@
 
         let totalBilled = 0;
         let totalPaid = 0;
+        let totalOpening = 0;
         let idx = 1;
 
         Object.keys(customerStats).sort().forEach(name => {
           const stat = customerStats[name];
-          stat.balance = stat.billed - stat.paid;
+          const ob = openingBalances[name] || 0;
+          stat.balance = stat.billed - stat.paid + ob;
           totalBilled += stat.billed;
           totalPaid += stat.paid;
+          totalOpening += ob;
 
           const tr = document.createElement('tr');
           tr.className = 'border-b border-black text-center';
           tr.innerHTML = `
             <td class="py-1.5 px-2 border-r border-black">${idx++}</td>
             <td class="py-1.5 px-4 border-r border-black text-left font-bold">${name}</td>
+            <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">${ob.toFixed(2)}</td>
             <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">${stat.billed.toFixed(2)}</td>
             <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">${stat.paid.toFixed(2)}</td>
             <td class="py-1.5 px-3 text-right font-mono font-black">${stat.balance.toFixed(2)}</td>
@@ -2523,9 +2916,10 @@
           tBody.appendChild(tr);
         });
 
+        document.getElementById('stmtSumOpening').textContent = `₹${totalOpening.toFixed(2)}`;
         document.getElementById('stmtSumBilled').textContent = `₹${totalBilled.toFixed(2)}`;
         document.getElementById('stmtSumPaid').textContent = `₹${totalPaid.toFixed(2)}`;
-        document.getElementById('stmtSumBalance').textContent = `₹${(totalBilled - totalPaid).toFixed(2)}`;
+        document.getElementById('stmtSumBalance').textContent = `₹${(totalBilled - totalPaid + totalOpening).toFixed(2)}`;
 
       } else {
         document.getElementById('stmtReportTitle').textContent = "CUSTOMER ACCOUNT STATEMENT & RUNNING BALANCE";
@@ -2545,6 +2939,7 @@
 
         const custInvoices = invoicesOnly.filter(d => (d.customer || '').trim() === paymentSelectedCustomer);
         const custPayments = paymentsList.filter(p => (p.customer || '').trim() === paymentSelectedCustomer);
+        const openingBal = openingBalances[paymentSelectedCustomer] || 0;
 
         const timeline = [];
         custInvoices.forEach(inv => {
@@ -2556,10 +2951,25 @@
 
         timeline.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        let runningBal = 0;
+        let runningBal = openingBal;
         let totalBilled = 0;
         let totalPaid = 0;
         let idx = 1;
+
+        if (openingBal !== 0) {
+          const obTr = document.createElement('tr');
+          obTr.className = 'border-b border-black text-center bg-amber-50';
+          obTr.innerHTML = `
+            <td class="py-1.5 px-2 border-r border-black">${idx++}</td>
+            <td class="py-1.5 px-2 border-r border-black font-mono">-</td>
+            <td class="py-1.5 px-2 border-r border-black font-mono font-bold">-</td>
+            <td class="py-1.5 px-3 border-r border-black text-left font-bold">Opening Balance (Carried Forward)</td>
+            <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">-</td>
+            <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">-</td>
+            <td class="py-1.5 px-3 text-right font-mono font-black">${runningBal.toFixed(2)}</td>
+          `;
+          tBody.appendChild(obTr);
+        }
 
         timeline.forEach(item => {
           runningBal += (item.billed - item.paid);
@@ -2580,9 +2990,10 @@
           tBody.appendChild(tr);
         });
 
+        document.getElementById('stmtSumOpening').textContent = `₹${openingBal.toFixed(2)}`;
         document.getElementById('stmtSumBilled').textContent = `₹${totalBilled.toFixed(2)}`;
         document.getElementById('stmtSumPaid').textContent = `₹${totalPaid.toFixed(2)}`;
-        document.getElementById('stmtSumBalance').textContent = `₹${(totalBilled - totalPaid).toFixed(2)}`;
+        document.getElementById('stmtSumBalance').textContent = `₹${(totalBilled - totalPaid + openingBal).toFixed(2)}`;
       }
 
       window.print();
@@ -2963,6 +3374,407 @@
       if (rem > 0) str += inWords(rem);
 
       return ('Rupees ' + str).replace(/\s+/g, ' ').trim();
+    }
+
+    // ==========================================
+    // 7. ACCOUNTS: EXPENSES, P&L, BALANCE SHEET,
+    //    GST SUMMARY, AGING, AUDIT LOG
+    // ==========================================
+
+    function logAudit(action, details) {
+      const entry = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        timestamp: new Date().toISOString(),
+        action: action,
+        details: details
+      };
+      auditLog.unshift(entry);
+      localStorage.setItem('vsg_audit_log', JSON.stringify(auditLog));
+      if (isCloudActive) {
+        db.collection("audit_log").doc(String(entry.id)).set(entry).catch(e => console.warn("Audit log sync failed:", e));
+      }
+    }
+
+    function populateAcctsCycleFilter() {
+      const sel = document.getElementById('acctsCycleFilter');
+      if (!sel) return;
+      const current = sel.value || 'ALL';
+      const cycles = new Set();
+      documents.forEach(d => { if (d.cycle) cycles.add(d.cycle); });
+      payments.forEach(p => { if (p.cycle) cycles.add(p.cycle); });
+      expenses.forEach(e => { if (e.cycle) cycles.add(e.cycle); });
+      userCycles.forEach(c => cycles.add(c));
+      const sorted = Array.from(cycles).sort().reverse();
+      sel.innerHTML = '<option value="ALL">All Cycles</option>' + sorted.map(c => `<option value="${c}">${c}</option>`).join('');
+      if (sorted.includes(current)) sel.value = current;
+      else sel.value = 'ALL';
+      acctsSelectedCycle = sel.value;
+    }
+
+    function onAcctsCycleChange() {
+      acctsSelectedCycle = document.getElementById('acctsCycleFilter').value;
+      renderAccountsSubTab();
+    }
+
+    function switchAccountsSubTab(tab) {
+      accountsSubTab = tab;
+      const panes = { expenses: 'acctsPaneExpenses', pnl: 'acctsPanePnl', balance: 'acctsPaneBalance', gst: 'acctsPaneGst', aging: 'acctsPaneAging', audit: 'acctsPaneAudit' };
+      const btns = { expenses: 'acctsBtnExpenses', pnl: 'acctsBtnPnl', balance: 'acctsBtnBalance', gst: 'acctsBtnGst', aging: 'acctsBtnAging', audit: 'acctsBtnAudit' };
+      Object.keys(panes).forEach(k => {
+        document.getElementById(panes[k]).classList.toggle('hidden', k !== tab);
+        document.getElementById(btns[k]).className = k === tab
+          ? "px-3.5 py-1.5 rounded-lg text-xs font-black transition-all shadow-sm bg-rose-600 text-white"
+          : "px-3.5 py-1.5 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900 bg-slate-100";
+      });
+      renderAccountsSubTab();
+    }
+
+    function renderAccountsSubTab() {
+      if (accountsSubTab === 'expenses') renderExpenses();
+      if (accountsSubTab === 'pnl') renderProfitLoss();
+      if (accountsSubTab === 'balance') renderBalanceSheet();
+      if (accountsSubTab === 'gst') renderGSTSummary();
+      if (accountsSubTab === 'aging') renderAgingReport();
+      if (accountsSubTab === 'audit') renderAuditLog();
+    }
+
+    function getFilteredExpenses() {
+      if (acctsSelectedCycle === 'ALL') return [...expenses];
+      return expenses.filter(e => (e.cycle === acctsSelectedCycle) || (!e.cycle && calculateCycle(e.date) === acctsSelectedCycle));
+    }
+
+    function getFilteredInvoices() {
+      let invs = documents.filter(d => (d.type || 'INVOICE') === 'INVOICE');
+      if (acctsSelectedCycle === 'ALL') return invs;
+      return invs.filter(d => (d.cycle === acctsSelectedCycle) || (!d.cycle && calculateCycle(d.date) === acctsSelectedCycle));
+    }
+
+    function getFilteredPayments() {
+      if (acctsSelectedCycle === 'ALL') return [...payments];
+      return payments.filter(p => (p.cycle === acctsSelectedCycle) || (!p.cycle && calculateCycle(p.date) === acctsSelectedCycle));
+    }
+
+    async function handleAddExpense(e) {
+      e.preventDefault();
+      const date = document.getElementById('expenseDate').value;
+      const category = document.getElementById('expenseCategory').value;
+      const paidTo = document.getElementById('expensePaidTo').value.trim();
+      const amount = parseFloat(document.getElementById('expenseAmount').value) || 0;
+      const gst = parseFloat(document.getElementById('expenseGst').value) || 0;
+      const remarks = document.getElementById('expenseRemarks').value.trim();
+
+      if (!date || amount <= 0) {
+        alert('Please enter a valid date and amount.');
+        return;
+      }
+
+      const cycle = calculateCycle(date);
+      const isEditing = !!editingExpenseId;
+      const expenseData = {
+        id: isEditing ? editingExpenseId : (Date.now() + Math.floor(Math.random() * 1000)),
+        date, category, paidTo, amount, gst, remarks, cycle
+      };
+
+      if (isEditing) {
+        const idx = expenses.findIndex(x => String(x.id) === String(editingExpenseId));
+        if (idx !== -1) expenses[idx] = expenseData;
+      } else {
+        expenses.push(expenseData);
+      }
+
+      localStorage.setItem('vsg_expenses', JSON.stringify(expenses));
+      if (isCloudActive) {
+        try { await db.collection("expenses").doc(String(expenseData.id)).set(expenseData); }
+        catch (err) { console.warn("Expense cloud sync failed:", err); }
+      }
+
+      logAudit(isEditing ? 'EXPENSE_EDIT' : 'EXPENSE_ADD', `${category} — ₹${amount.toFixed(2)} paid to ${paidTo || 'N/A'} on ${formatDisplayDate(date)}`);
+
+      editingExpenseId = null;
+      document.getElementById('expenseForm').reset();
+      document.getElementById('expenseDate').valueAsDate = new Date();
+      document.getElementById('expenseSubmitBtn').textContent = '+ Save';
+      document.getElementById('expenseFormHeading').textContent = 'Add New Expense / Purchase';
+      populateAcctsCycleFilter();
+      renderExpenses();
+    }
+
+    function editExpense(id) {
+      const exp = expenses.find(x => String(x.id) === String(id));
+      if (!exp) return;
+      editingExpenseId = exp.id;
+      document.getElementById('expenseDate').value = exp.date;
+      document.getElementById('expenseCategory').value = exp.category;
+      document.getElementById('expensePaidTo').value = exp.paidTo || '';
+      document.getElementById('expenseAmount').value = exp.amount;
+      document.getElementById('expenseGst').value = exp.gst || 0;
+      document.getElementById('expenseRemarks').value = exp.remarks || '';
+      document.getElementById('expenseSubmitBtn').textContent = 'Update';
+      document.getElementById('expenseFormHeading').textContent = 'Edit Expense / Purchase';
+      window.scrollTo({ top: document.getElementById('expenseForm').offsetTop - 100, behavior: 'smooth' });
+    }
+
+    async function deleteExpense(id) {
+      const exp = expenses.find(x => String(x.id) === String(id));
+      if (!confirm('Delete this expense entry? This cannot be undone.')) return;
+      expenses = expenses.filter(x => String(x.id) !== String(id));
+      localStorage.setItem('vsg_expenses', JSON.stringify(expenses));
+      if (isCloudActive) {
+        try { await db.collection("expenses").doc(String(id)).delete(); }
+        catch (err) { console.warn("Expense delete cloud sync failed:", err); }
+      }
+      if (exp) logAudit('EXPENSE_DELETE', `${exp.category} — ₹${(exp.amount || 0).toFixed(2)} paid to ${exp.paidTo || 'N/A'} on ${formatDisplayDate(exp.date)}`);
+      renderExpenses();
+    }
+
+    function renderExpenses() {
+      const tbody = document.getElementById('expenseTableBody');
+      if (!tbody) return;
+      const list = getFilteredExpenses().sort((a, b) => new Date(b.date) - new Date(a.date));
+      tbody.innerHTML = '';
+      let total = 0;
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400 font-medium">No expenses recorded for selected cycle.</td></tr>`;
+      } else {
+        list.forEach((exp, idx) => {
+          total += (exp.amount || 0);
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition border-b';
+          tr.innerHTML = `
+            <td class="py-2.5 px-3 text-center text-slate-400 font-bold">${idx + 1}</td>
+            <td class="py-2.5 px-3 font-mono font-medium text-slate-700">${formatDisplayDate(exp.date)}</td>
+            <td class="py-2.5 px-3 font-semibold text-slate-800">${exp.category}</td>
+            <td class="py-2.5 px-3 text-slate-700">${exp.paidTo || '-'}</td>
+            <td class="py-2.5 px-3 text-slate-500">${exp.remarks || '-'}</td>
+            <td class="py-2.5 px-3 text-right font-mono text-slate-600">₹${(exp.gst || 0).toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-right font-mono font-bold text-rose-700">₹${(exp.amount || 0).toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-center whitespace-nowrap">
+              <button onclick="editExpense(${JSON.stringify(exp.id)})" class="text-blue-600 font-bold hover:underline mr-2">Edit</button>
+              <button onclick="deleteExpense(${JSON.stringify(exp.id)})" class="text-rose-600 font-bold hover:underline">Delete</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+      document.getElementById('expenseGrandTotal').textContent = `₹${total.toFixed(2)}`;
+    }
+
+    function renderProfitLoss() {
+      const invoices = getFilteredInvoices();
+      const expList = getFilteredExpenses();
+
+      let income = 0;
+      invoices.forEach(d => { income += (d.taxableAmount || (d.total - (d.sgst || 0) - (d.cgst || 0)) || 0); });
+
+      let totalExpense = 0;
+      const byCategory = {};
+      expList.forEach(e => {
+        totalExpense += (e.amount || 0);
+        byCategory[e.category] = (byCategory[e.category] || 0) + (e.amount || 0);
+      });
+
+      const netProfit = income - totalExpense;
+
+      document.getElementById('pnlIncome').textContent = `₹${income.toFixed(2)}`;
+      document.getElementById('pnlExpenses').textContent = `₹${totalExpense.toFixed(2)}`;
+      const netEl = document.getElementById('pnlNet');
+      netEl.textContent = `₹${netProfit.toFixed(2)}`;
+      netEl.className = `text-xl font-black font-mono mt-1 ${netProfit >= 0 ? 'text-emerald-700' : 'text-rose-700'}`;
+
+      const tbody = document.getElementById('pnlCategoryTableBody');
+      tbody.innerHTML = '';
+      const cats = Object.keys(byCategory).sort((a, b) => byCategory[b] - byCategory[a]);
+      if (cats.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="py-8 text-center text-slate-400 font-medium">No expense data for selected cycle.</td></tr>`;
+        return;
+      }
+      cats.forEach(cat => {
+        const amt = byCategory[cat];
+        const pct = totalExpense > 0 ? (amt / totalExpense * 100) : 0;
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b';
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 font-semibold text-slate-800">${cat}</td>
+          <td class="py-2.5 px-3 text-right font-mono font-bold text-rose-700">₹${amt.toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-right font-mono text-slate-600">${pct.toFixed(1)}%</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderBalanceSheet() {
+      const invoices = getFilteredInvoices();
+      const paymentsList = getFilteredPayments();
+      const expList = getFilteredExpenses();
+
+      let totalBilled = 0;
+      invoices.forEach(d => { totalBilled += (d.total || 0); });
+      let totalReceived = 0;
+      paymentsList.forEach(p => { totalReceived += (p.amount || 0); });
+      let totalOpening = 0;
+      Object.values(openingBalances).forEach(v => { totalOpening += (v || 0); });
+      const receivables = totalBilled - totalReceived + totalOpening;
+
+      let totalExpensePaid = 0;
+      let totalGstPaidOnExpenses = 0;
+      expList.forEach(e => { totalExpensePaid += (e.amount || 0); totalGstPaidOnExpenses += (e.gst || 0); });
+
+      let outputTax = 0;
+      invoices.forEach(d => { outputTax += ((d.sgst || 0) + (d.cgst || 0)); });
+      const taxPayable = Math.max(0, outputTax - totalGstPaidOnExpenses);
+
+      const cashBankAsset = totalReceived - totalExpensePaid;
+
+      const assetsBody = document.getElementById('balanceAssetsBody');
+      assetsBody.innerHTML = `
+        <tr class="hover:bg-slate-50"><td class="py-2.5 px-4 text-slate-700 font-medium">Cash / Bank (Received − Paid Out)</td><td class="py-2.5 px-4 text-right font-mono font-bold">₹${cashBankAsset.toFixed(2)}</td></tr>
+        <tr class="hover:bg-slate-50"><td class="py-2.5 px-4 text-slate-700 font-medium">Accounts Receivable (Customer Dues)</td><td class="py-2.5 px-4 text-right font-mono font-bold">₹${receivables.toFixed(2)}</td></tr>
+      `;
+      const totalAssets = cashBankAsset + receivables;
+      document.getElementById('balanceTotalAssets').textContent = `₹${totalAssets.toFixed(2)}`;
+
+      const liabBody = document.getElementById('balanceLiabilitiesBody');
+      liabBody.innerHTML = `
+        <tr class="hover:bg-slate-50"><td class="py-2.5 px-4 text-slate-700 font-medium">GST Payable (Output − Input Credit)</td><td class="py-2.5 px-4 text-right font-mono font-bold">₹${taxPayable.toFixed(2)}</td></tr>
+      `;
+      const totalLiabilities = taxPayable;
+      document.getElementById('balanceTotalLiabilities').textContent = `₹${totalLiabilities.toFixed(2)}`;
+
+      const netWorth = totalAssets - totalLiabilities;
+      const netEl = document.getElementById('balanceNetWorth');
+      netEl.textContent = `₹${netWorth.toFixed(2)}`;
+      netEl.className = `text-xl font-black font-mono ${netWorth >= 0 ? 'text-emerald-700' : 'text-rose-700'}`;
+    }
+
+    function renderGSTSummary() {
+      const invoices = getFilteredInvoices();
+      const expList = getFilteredExpenses();
+
+      let sgstOutput = 0, cgstOutput = 0;
+      invoices.forEach(d => { sgstOutput += (d.sgst || 0); cgstOutput += (d.cgst || 0); });
+      const totalOutput = sgstOutput + cgstOutput;
+
+      let totalInput = 0;
+      expList.forEach(e => { totalInput += (e.gst || 0); });
+      const sgstInput = totalInput / 2;
+      const cgstInput = totalInput / 2;
+
+      const netPayable = Math.max(0, totalOutput - totalInput);
+
+      document.getElementById('gstOutput').textContent = `₹${totalOutput.toFixed(2)}`;
+      document.getElementById('gstInput').textContent = `₹${totalInput.toFixed(2)}`;
+      document.getElementById('gstNetPayable').textContent = `₹${netPayable.toFixed(2)}`;
+
+      const tbody = document.getElementById('gstBreakdownBody');
+      tbody.innerHTML = `
+        <tr class="hover:bg-slate-50"><td class="py-2.5 px-3 font-semibold text-slate-800">Output Tax (on Sales)</td><td class="py-2.5 px-3 text-right font-mono">₹${sgstOutput.toFixed(2)}</td><td class="py-2.5 px-3 text-right font-mono">₹${cgstOutput.toFixed(2)}</td><td class="py-2.5 px-3 text-right font-mono font-bold">₹${totalOutput.toFixed(2)}</td></tr>
+        <tr class="hover:bg-slate-50"><td class="py-2.5 px-3 font-semibold text-slate-800">Input Tax Credit (on Purchases)</td><td class="py-2.5 px-3 text-right font-mono">₹${sgstInput.toFixed(2)}</td><td class="py-2.5 px-3 text-right font-mono">₹${cgstInput.toFixed(2)}</td><td class="py-2.5 px-3 text-right font-mono font-bold">₹${totalInput.toFixed(2)}</td></tr>
+        <tr class="bg-rose-50 font-black text-rose-900 border-t-2 border-rose-200"><td class="py-2.5 px-3">Net Payable</td><td class="py-2.5 px-3 text-right font-mono">-</td><td class="py-2.5 px-3 text-right font-mono">-</td><td class="py-2.5 px-3 text-right font-mono">₹${netPayable.toFixed(2)}</td></tr>
+      `;
+    }
+
+    function renderAgingReport() {
+      const invoices = getFilteredInvoices();
+      const paymentsList = getFilteredPayments();
+      const today = new Date();
+
+      const custStats = {};
+      customers.forEach(c => {
+        if (c.name) {
+          const nm = c.name.trim();
+          custStats[nm] = { b0: 0, b30: 0, b60: (openingBalances[nm] || 0) };
+        }
+      });
+
+      let paidByCustomer = {};
+      paymentsList.forEach(p => {
+        const name = (p.customer || '').trim();
+        paidByCustomer[name] = (paidByCustomer[name] || 0) + (p.amount || 0);
+      });
+
+      // Apply payments FIFO against oldest invoices per customer to estimate outstanding per invoice
+      const byCustomerInvoices = {};
+      invoices.forEach(d => {
+        const name = (d.customer || '').trim();
+        if (!byCustomerInvoices[name]) byCustomerInvoices[name] = [];
+        byCustomerInvoices[name].push({ date: d.date, amount: d.total || 0 });
+      });
+
+      Object.keys(byCustomerInvoices).forEach(name => {
+        const invs = byCustomerInvoices[name].sort((a, b) => new Date(a.date) - new Date(b.date));
+        let remainingPaid = paidByCustomer[name] || 0;
+        if (!custStats[name]) custStats[name] = { b0: 0, b30: 0, b60: (openingBalances[name] || 0) };
+        invs.forEach(inv => {
+          let due = inv.amount;
+          if (remainingPaid > 0) {
+            const applied = Math.min(remainingPaid, due);
+            due -= applied;
+            remainingPaid -= applied;
+          }
+          if (due <= 0.005) return;
+          const ageDays = Math.floor((today - new Date(inv.date)) / (1000 * 60 * 60 * 24));
+          if (ageDays <= 30) custStats[name].b0 += due;
+          else if (ageDays <= 60) custStats[name].b30 += due;
+          else custStats[name].b60 += due;
+        });
+      });
+
+      const tbody = document.getElementById('agingTableBody');
+      tbody.innerHTML = '';
+      let t0 = 0, t30 = 0, t60 = 0;
+      const names = Object.keys(custStats).filter(n => (custStats[n].b0 + custStats[n].b30 + custStats[n].b60) > 0.005).sort();
+
+      if (names.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 font-medium">No outstanding balances for selected cycle. 🎉</td></tr>`;
+      } else {
+        names.forEach(name => {
+          const s = custStats[name];
+          const total = s.b0 + s.b30 + s.b60;
+          t0 += s.b0; t30 += s.b30; t60 += s.b60;
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition border-b';
+          tr.innerHTML = `
+            <td class="py-2.5 px-3 font-bold text-slate-900">${name}</td>
+            <td class="py-2.5 px-3 text-right font-mono ${s.b0 > 0 ? 'text-slate-700' : 'text-slate-300'}">₹${s.b0.toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-right font-mono ${s.b30 > 0 ? 'text-amber-700 font-bold' : 'text-slate-300'}">₹${s.b30.toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-right font-mono ${s.b60 > 0 ? 'text-rose-700 font-black' : 'text-slate-300'}">₹${s.b60.toFixed(2)}</td>
+            <td class="py-2.5 px-3 text-right font-mono font-black text-blue-950">₹${total.toFixed(2)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      document.getElementById('aging0Total').textContent = `₹${t0.toFixed(2)}`;
+      document.getElementById('aging30Total').textContent = `₹${t30.toFixed(2)}`;
+      document.getElementById('aging60Total').textContent = `₹${t60.toFixed(2)}`;
+      document.getElementById('agingGrandTotal').textContent = `₹${(t0 + t30 + t60).toFixed(2)}`;
+    }
+
+    function renderAuditLog() {
+      const tbody = document.getElementById('auditLogTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      if (auditLog.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="py-8 text-center text-slate-400 font-medium">No audit activity recorded yet.</td></tr>`;
+        return;
+      }
+      const actionColors = {
+        EXPENSE_ADD: 'text-emerald-700 bg-emerald-50', EXPENSE_EDIT: 'text-blue-700 bg-blue-50', EXPENSE_DELETE: 'text-rose-700 bg-rose-50',
+        INVOICE_SAVE: 'text-emerald-700 bg-emerald-50', INVOICE_DELETE: 'text-rose-700 bg-rose-50', CYCLE_DELETE: 'text-rose-700 bg-rose-50',
+        PAYMENT_ADD: 'text-emerald-700 bg-emerald-50', PAYMENT_DELETE: 'text-rose-700 bg-rose-50', RESTORE_BACKUP: 'text-amber-700 bg-amber-50'
+      };
+      auditLog.slice(0, 300).forEach(entry => {
+        const dt = new Date(entry.timestamp);
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b';
+        const colorClass = actionColors[entry.action] || 'text-slate-700 bg-slate-100';
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 font-mono text-slate-600 whitespace-nowrap">${formatDisplayDate(entry.timestamp.slice(0,10))} ${dt.toTimeString().slice(0,5)}</td>
+          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-md font-bold text-[10px] ${colorClass}">${(entry.action || '').replace(/_/g, ' ')}</span></td>
+          <td class="py-2.5 px-3 text-slate-700">${entry.details || ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
     }
   </script>
 </body>
