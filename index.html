@@ -21,6 +21,24 @@
     .dark .text-slate-900, .dark .text-slate-800, .dark .text-slate-700 { color: #f8fafc !important; }
     .dark .text-slate-600, .dark .text-slate-500 { color: #94a3b8 !important; }
 
+    /* Dark-mode support for tinted stat/info cards used across Accounts & Attendance tabs */
+    .dark [class*="bg-emerald-50"] { background-color: rgba(16,185,129,0.12) !important; }
+    .dark [class*="bg-rose-50"] { background-color: rgba(244,63,94,0.12) !important; }
+    .dark [class*="bg-blue-50"] { background-color: rgba(59,130,246,0.12) !important; }
+    .dark [class*="bg-amber-50"] { background-color: rgba(245,158,11,0.12) !important; }
+    .dark [class*="bg-purple-50"] { background-color: rgba(168,85,247,0.12) !important; }
+    .dark [class*="bg-cyan-50"] { background-color: rgba(6,182,212,0.12) !important; }
+    .dark [class*="border-emerald-200"] { border-color: rgba(16,185,129,0.35) !important; }
+    .dark [class*="border-rose-200"] { border-color: rgba(244,63,94,0.35) !important; }
+    .dark [class*="border-blue-200"] { border-color: rgba(59,130,246,0.35) !important; }
+    .dark [class*="border-amber-200"] { border-color: rgba(245,158,11,0.35) !important; }
+    .dark [class*="border-purple-200"] { border-color: rgba(168,85,247,0.35) !important; }
+    .dark .text-emerald-900, .dark .text-emerald-800 { color: #6ee7b7 !important; }
+    .dark .text-rose-900, .dark .text-rose-800 { color: #fda4af !important; }
+    .dark .text-blue-900, .dark .text-blue-800 { color: #93c5fd !important; }
+    .dark .text-amber-900, .dark .text-amber-800 { color: #fcd34d !important; }
+    .dark .text-purple-900, .dark .text-purple-800 { color: #d8b4fe !important; }
+
     .spin-active { animation: spin 0.7s linear infinite; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
 
@@ -122,6 +140,7 @@
         <button onclick="switchTab('history')" id="btnNavHistory" class="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md transition">History</button>
         <button onclick="switchTab('payment')" id="btnNavPayment" class="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-md transition">Payment Ledger</button>
         <button onclick="switchTab('accounts')" id="btnNavAccounts" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-md transition">Accounts</button>
+        <button onclick="switchTab('attendance')" id="btnNavAttendance" class="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white shadow-md transition">Attendance</button>
         <button onclick="switchTab('profile')" id="btnNavProfile" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition">Profile & Backup</button>
         <button onclick="toggleAppTheme()" class="px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition" title="Toggle Theme">🌙/☀️</button>
         <button onclick="handleLogout()" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white ml-2 shadow-md transition">Logout</button>
@@ -578,11 +597,15 @@
             </h3>
             <div class="flex flex-wrap items-end gap-3">
               <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">As of Date</label>
+                <input type="date" id="openingBalanceDate" class="w-40 px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-mono font-bold text-slate-700">
+              </div>
+              <div>
                 <label class="block text-[11px] font-bold text-slate-700 mb-1">Opening Balance (₹)</label>
                 <input type="number" step="0.01" id="openingBalanceInput" placeholder="0.00" class="w-48 px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-mono font-bold text-amber-800">
               </div>
               <button onclick="saveOpeningBalance()" class="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-sm transition">Save Opening Balance</button>
-              <p class="text-[11px] text-slate-500 w-full sm:w-auto">Enter any balance carried forward from last year. It's automatically added to this customer's current balance below.</p>
+              <p class="text-[11px] text-slate-500 w-full sm:w-auto">Enter any balance carried forward from last year, and the date it's as of. It's automatically added to this customer's current balance below.</p>
             </div>
           </div>
 
@@ -915,7 +938,205 @@
         </div>
       </section>
 
+      <!-- ============ ATTENDANCE TAB ============ -->
+      <section id="tabAttendance" class="hidden space-y-6 no-print">
+
+        <!-- MONTHLY ANALYTICS -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 gap-4">
+            <div>
+              <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>📊</span> Monthly Attendance Analytics</h2>
+              <p class="text-xs text-slate-500">Live operational hours and Month-To-Date (MTD) attendance calculations.</p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <label class="text-xs font-bold text-slate-600">Month:</label>
+              <input type="month" id="dashboardMonthPicker" onchange="calculateMonthlyMetrics()" class="px-3 py-1.5 text-xs border rounded-lg bg-white font-mono font-bold text-blue-700 shadow-sm outline-none">
+              <button onclick="syncAttendance()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition">🔄 Refresh</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div class="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Present (MTD)</p>
+              <p id="kpiPresentDays" class="text-2xl font-black font-mono text-emerald-700 mt-1">0</p>
+              <span class="text-[10px] text-emerald-600 font-medium">Logged employee shifts</span>
+            </div>
+            <div class="p-4 bg-rose-50/80 border border-rose-200 rounded-2xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-rose-800">Absent (MTD)</p>
+              <p id="kpiAbsentDays" class="text-2xl font-black font-mono text-rose-700 mt-1">0</p>
+              <span class="text-[10px] text-rose-500 font-medium">Logged factory days missed</span>
+            </div>
+            <div class="p-4 bg-blue-50/80 border border-blue-200 rounded-2xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-blue-800">Total Work Hours</p>
+              <p id="kpiTotalWork" class="text-2xl font-black font-mono text-blue-700 mt-1">0h 0m</p>
+              <span class="text-[10px] text-blue-600 font-medium">Net productive time</span>
+            </div>
+            <div class="p-4 bg-purple-50/80 border border-purple-200 rounded-2xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-purple-800">Avg Hours / Shift</p>
+              <p id="kpiAvgWork" class="text-2xl font-black font-mono text-purple-700 mt-1">0h 0m</p>
+              <span class="text-[10px] text-purple-600 font-medium">Per present employee</span>
+            </div>
+            <div class="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-amber-800">Total Lunch Time</p>
+              <p id="kpiTotalLunch" class="text-2xl font-black font-mono text-amber-700 mt-1">0h 0m</p>
+              <span class="text-[10px] text-amber-600 font-medium">Across all breaks</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DAILY ATTENDANCE LOG -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-3 border-b border-slate-100 gap-4">
+            <div class="flex items-center gap-3">
+              <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>📅</span> Daily Attendance Log</h2>
+              <span id="liveTodayBadge" class="px-3 py-1 bg-blue-50 text-blue-800 border border-blue-200 rounded-full font-mono text-xs font-extrabold flex items-center gap-1.5 shadow-sm">
+                <span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+                <span id="liveTodayText">Today: Loading...</span>
+              </span>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <label class="text-xs font-bold text-slate-600">Filter Date:</label>
+              <input type="date" id="attendanceDateFilter" onchange="renderDailyAttendanceTable()" class="px-3 py-1.5 text-xs border rounded-lg bg-white font-medium text-slate-700 shadow-sm outline-none">
+              <button onclick="clearDateFilter()" class="px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition">Clear Filter</button>
+            </div>
+          </div>
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                  <th class="py-3 px-4">Date</th>
+                  <th class="py-3 px-4">Employee</th>
+                  <th class="py-3 px-3 text-center text-emerald-700">Check In</th>
+                  <th class="py-3 px-3 text-center text-amber-700">Lunch Out</th>
+                  <th class="py-3 px-3 text-center text-blue-700">Lunch In</th>
+                  <th class="py-3 px-3 text-center text-rose-700">Check Out</th>
+                  <th class="py-3 px-3 text-center text-slate-700 font-bold">Lunch Duration</th>
+                  <th class="py-3 px-3 text-center font-black text-indigo-700">Work Hours</th>
+                  <th class="py-3 px-3 text-center">Status</th>
+                  <th class="py-3 px-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="dailyAttendanceTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- EMPLOYEE DIRECTORY & ENROLLMENT -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3 border-b border-slate-100 gap-3">
+            <div>
+              <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>👥</span> Employee Directory & Terminal Enrollment</h2>
+              <p class="text-xs text-slate-500">Configure employees, roles, and hardware fingerprint links. Updates sync directly to the ESP32.</p>
+            </div>
+            <div id="enrollmentStatusBadge" class="hidden px-3 py-1 rounded-full text-xs font-bold"></div>
+          </div>
+
+          <form onsubmit="handleSaveEmployee(event)" class="grid grid-cols-1 sm:grid-cols-5 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 mb-1">Employee ID</label>
+              <input type="number" id="empIdInput" required min="1" placeholder="e.g. 1" class="w-full px-3 py-2 border rounded-lg text-xs bg-white font-mono font-bold outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 mb-1">Employee Name</label>
+              <input type="text" id="empNameInput" required placeholder="e.g. SIVARAJ" class="w-full px-3 py-2 border rounded-lg text-xs bg-white font-bold uppercase outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 mb-1">Role</label>
+              <select id="empRoleInput" class="w-full px-3 py-2 border rounded-lg text-xs bg-white font-semibold outline-none">
+                <option value="Employee">Employee</option>
+                <option value="Admin">Admin</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 mb-1">Status</label>
+              <select id="empStatusInput" class="w-full px-3 py-2 border rounded-lg text-xs bg-white font-semibold outline-none">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+            <div class="flex items-end gap-2">
+              <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-lg shadow-sm transition">Save Record</button>
+              <button type="button" onclick="triggerHardwareEnroll()" class="px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-lg shadow-sm transition whitespace-nowrap" title="Send scan command to ESP32">Scan Finger</button>
+            </div>
+          </form>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                  <th class="py-3 px-4 text-center w-16">ID</th>
+                  <th class="py-3 px-4">Name</th>
+                  <th class="py-3 px-4">Role</th>
+                  <th class="py-3 px-4 text-center">Fingerprint Slot</th>
+                  <th class="py-3 px-4 text-center">Status</th>
+                  <th class="py-3 px-4 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="employeeDirectoryTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
     </main>
+  </div>
+
+  <!-- ATTENDANCE: EMPLOYEE PROFILE MODAL -->
+  <div id="attendanceProfileModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="bg-slate-900 text-white p-5 flex justify-between items-center">
+        <div>
+          <h3 id="modalEmpName" class="text-lg font-black tracking-wide font-brand">EMPLOYEE NAME</h3>
+          <p id="modalEmpDetails" class="text-xs text-slate-400">Employee ID: 1 | Role: Employee | Fingerprint: 1</p>
+        </div>
+        <button onclick="closeProfileModal()" class="text-slate-400 hover:text-white font-black text-xl px-2">✕</button>
+      </div>
+      <div class="p-6 overflow-y-auto space-y-6">
+        <div class="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+          <p id="modalMonthTitle" class="text-xs font-black uppercase tracking-wider text-slate-600 mb-3">OCTOBER 2026</p>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+            <div class="bg-white p-3 rounded-xl border border-slate-200">
+              <span class="text-slate-500 font-semibold block text-[11px]">Present Days</span>
+              <span id="modalPresentDays" class="text-lg font-black text-emerald-700 font-mono">0</span>
+            </div>
+            <div class="bg-white p-3 rounded-xl border border-slate-200">
+              <span class="text-slate-500 font-semibold block text-[11px]">Absent Days</span>
+              <span id="modalAbsentDays" class="text-lg font-black text-rose-700 font-mono">0</span>
+            </div>
+            <div class="bg-white p-3 rounded-xl border border-slate-200">
+              <span class="text-slate-500 font-semibold block text-[11px]">Total Work Time</span>
+              <span id="modalWorkHours" class="text-lg font-black text-blue-700 font-mono">0h 0m</span>
+            </div>
+            <div class="bg-white p-3 rounded-xl border border-slate-200">
+              <span class="text-slate-500 font-semibold block text-[11px]">Average / Day</span>
+              <span id="modalAvgDay" class="text-lg font-black text-purple-700 font-mono">0h 0m</span>
+            </div>
+            <div class="bg-white p-3 rounded-xl border border-slate-200 sm:col-span-2">
+              <span class="text-slate-500 font-semibold block text-[11px]">Total Lunch Time</span>
+              <span id="modalLunchTime" class="text-lg font-black text-amber-700 font-mono">0h 0m</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Individual Shift History</h4>
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[10px] uppercase">
+                  <th class="py-2.5 px-3">Date</th>
+                  <th class="py-2.5 px-2 text-center text-emerald-700">Check In</th>
+                  <th class="py-2.5 px-2 text-center text-amber-700">Lunch Out</th>
+                  <th class="py-2.5 px-2 text-center text-blue-700">Lunch In</th>
+                  <th class="py-2.5 px-2 text-center text-rose-700">Check Out</th>
+                  <th class="py-2.5 px-2 text-center">Work Time</th>
+                  <th class="py-2.5 px-2 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody id="modalTimelineBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- PRINTABLE EXACT ORIGINAL TAX INVOICE FORMAT -->
@@ -1277,6 +1498,20 @@
     let expenses = JSON.parse(localStorage.getItem('vsg_expenses')) || [];
     let auditLog = JSON.parse(localStorage.getItem('vsg_audit_log')) || [];
     let openingBalances = JSON.parse(localStorage.getItem('vsg_opening_balances')) || {};
+
+    // Supports both the legacy format ({name: amount}) and the current format
+    // ({name: {amount, date}}) so older saved/synced data keeps working.
+    function getOpeningBalanceAmount(name) {
+      const v = openingBalances[name];
+      if (v == null) return 0;
+      if (typeof v === 'object') return v.amount || 0;
+      return v || 0;
+    }
+    function getOpeningBalanceDate(name) {
+      const v = openingBalances[name];
+      if (v && typeof v === 'object') return v.date || '';
+      return '';
+    }
     let userCycles = JSON.parse(localStorage.getItem('vsg_user_cycles')) || [];
     let accountsSubTab = 'expenses';
     let acctsSelectedCycle = 'ALL';
@@ -1687,7 +1922,7 @@
     }
 
     function switchTab(tab) {
-      ['tabInvoice', 'tabProfile', 'tabCustomers', 'tabHistory', 'tabPayment', 'tabAccounts'].forEach(id => {
+      ['tabInvoice', 'tabProfile', 'tabCustomers', 'tabHistory', 'tabPayment', 'tabAccounts', 'tabAttendance'].forEach(id => {
         document.getElementById(id).classList.add('hidden');
       });
       if (tab === 'invoice') document.getElementById('tabInvoice').classList.remove('hidden');
@@ -1709,6 +1944,10 @@
         document.getElementById('expenseDate').valueAsDate = document.getElementById('expenseDate').valueAsDate || new Date();
         populateAcctsCycleFilter();
         switchAccountsSubTab(accountsSubTab);
+      }
+      if (tab === 'attendance') {
+        document.getElementById('tabAttendance').classList.remove('hidden');
+        initAttendanceModule();
       }
     }
 
@@ -2564,8 +2803,9 @@
       const customer = paymentSelectedCustomer;
       if (!customer || customer === 'ALL') return;
       const val = parseFloat(document.getElementById('openingBalanceInput').value) || 0;
+      const asOfDate = document.getElementById('openingBalanceDate').value || '';
 
-      openingBalances[customer] = val;
+      openingBalances[customer] = { amount: val, date: asOfDate };
       localStorage.setItem('vsg_opening_balances', JSON.stringify(openingBalances));
 
       if (isCloudActive) {
@@ -2573,7 +2813,7 @@
         catch (err) { console.warn("Opening balance cloud sync failed:", err); }
       }
 
-      logAudit('OPENING_BALANCE_SET', `Opening balance for ${customer} set to ₹${val.toFixed(2)}`);
+      logAudit('OPENING_BALANCE_SET', `Opening balance for ${customer} set to ₹${val.toFixed(2)}${asOfDate ? ' as of ' + formatDisplayDate(asOfDate) : ''}`);
       renderPaymentLedger();
     }
 
@@ -2647,7 +2887,7 @@
       invoicesOnly.forEach(d => { totalBilledAll += (d.total || 0); });
       paymentsList.forEach(p => { totalPaidAll += (p.amount || 0); });
       let totalOpeningAll = 0;
-      Object.values(openingBalances).forEach(v => { totalOpeningAll += (v || 0); });
+      Object.keys(openingBalances).forEach(nm => { totalOpeningAll += getOpeningBalanceAmount(nm); });
       let totalBalanceAll = totalBilledAll - totalPaidAll + totalOpeningAll;
 
       if (paymentSelectedCustomer === 'ALL') {
@@ -2692,7 +2932,7 @@
 
         names.forEach((name, idx) => {
           const stat = customerStats[name];
-          const ob = openingBalances[name] || 0;
+          const ob = getOpeningBalanceAmount(name);
           stat.balance = stat.billed - stat.paid + ob;
 
           const tr = document.createElement('tr');
@@ -2721,8 +2961,9 @@
         document.getElementById('payEntryCustomerNameLabel').textContent = paymentSelectedCustomer;
         document.getElementById('individualStatementHeading').textContent = `Customer Statement: ${paymentSelectedCustomer}`;
         document.getElementById('obCustomerNameLabel').textContent = paymentSelectedCustomer;
-        const openingBal = openingBalances[paymentSelectedCustomer] || 0;
+        const openingBal = getOpeningBalanceAmount(paymentSelectedCustomer);
         document.getElementById('openingBalanceInput').value = openingBal || '';
+        document.getElementById('openingBalanceDate').value = getOpeningBalanceDate(paymentSelectedCustomer) || '';
 
         const custInvoices = invoicesOnly.filter(d => (d.customer || '').trim() === paymentSelectedCustomer);
         const custPayments = paymentsList.filter(p => (p.customer || '').trim() === paymentSelectedCustomer);
@@ -2785,9 +3026,10 @@
           slCounter++;
           const obTr = document.createElement('tr');
           obTr.className = 'bg-amber-50/60 border-b';
+          const obDateDisplay = getOpeningBalanceDate(paymentSelectedCustomer) ? formatDisplayDate(getOpeningBalanceDate(paymentSelectedCustomer)) : '-';
           obTr.innerHTML = `
             <td class="py-3 px-3 text-center text-slate-400 font-bold">${slCounter}</td>
-            <td class="py-3 px-3 font-mono font-medium text-slate-700">-</td>
+            <td class="py-3 px-3 font-mono font-medium text-slate-700">${obDateDisplay}</td>
             <td class="py-3 px-3 font-mono font-bold text-slate-400">-</td>
             <td class="py-3 px-4 text-amber-800 font-bold">Opening Balance (Carried Forward)</td>
             <td class="py-3 px-3 text-right font-mono font-bold text-slate-900">-</td>
@@ -2897,7 +3139,7 @@
 
         Object.keys(customerStats).sort().forEach(name => {
           const stat = customerStats[name];
-          const ob = openingBalances[name] || 0;
+          const ob = getOpeningBalanceAmount(name);
           stat.balance = stat.billed - stat.paid + ob;
           totalBilled += stat.billed;
           totalPaid += stat.paid;
@@ -2939,7 +3181,7 @@
 
         const custInvoices = invoicesOnly.filter(d => (d.customer || '').trim() === paymentSelectedCustomer);
         const custPayments = paymentsList.filter(p => (p.customer || '').trim() === paymentSelectedCustomer);
-        const openingBal = openingBalances[paymentSelectedCustomer] || 0;
+        const openingBal = getOpeningBalanceAmount(paymentSelectedCustomer);
 
         const timeline = [];
         custInvoices.forEach(inv => {
@@ -2957,11 +3199,12 @@
         let idx = 1;
 
         if (openingBal !== 0) {
+          const obDateDisplay = getOpeningBalanceDate(paymentSelectedCustomer) ? formatDisplayDate(getOpeningBalanceDate(paymentSelectedCustomer)) : '-';
           const obTr = document.createElement('tr');
           obTr.className = 'border-b border-black text-center bg-amber-50';
           obTr.innerHTML = `
             <td class="py-1.5 px-2 border-r border-black">${idx++}</td>
-            <td class="py-1.5 px-2 border-r border-black font-mono">-</td>
+            <td class="py-1.5 px-2 border-r border-black font-mono">${obDateDisplay}</td>
             <td class="py-1.5 px-2 border-r border-black font-mono font-bold">-</td>
             <td class="py-1.5 px-3 border-r border-black text-left font-bold">Opening Balance (Carried Forward)</td>
             <td class="py-1.5 px-3 border-r border-black text-right font-mono font-bold">-</td>
@@ -3612,7 +3855,7 @@
       let totalReceived = 0;
       paymentsList.forEach(p => { totalReceived += (p.amount || 0); });
       let totalOpening = 0;
-      Object.values(openingBalances).forEach(v => { totalOpening += (v || 0); });
+      Object.keys(openingBalances).forEach(nm => { totalOpening += getOpeningBalanceAmount(nm); });
       const receivables = totalBilled - totalReceived + totalOpening;
 
       let totalExpensePaid = 0;
@@ -3682,7 +3925,7 @@
       customers.forEach(c => {
         if (c.name) {
           const nm = c.name.trim();
-          custStats[nm] = { b0: 0, b30: 0, b60: (openingBalances[nm] || 0) };
+          custStats[nm] = { b0: 0, b30: 0, b60: getOpeningBalanceAmount(nm) };
         }
       });
 
@@ -3703,7 +3946,7 @@
       Object.keys(byCustomerInvoices).forEach(name => {
         const invs = byCustomerInvoices[name].sort((a, b) => new Date(a.date) - new Date(b.date));
         let remainingPaid = paidByCustomer[name] || 0;
-        if (!custStats[name]) custStats[name] = { b0: 0, b30: 0, b60: (openingBalances[name] || 0) };
+        if (!custStats[name]) custStats[name] = { b0: 0, b30: 0, b60: getOpeningBalanceAmount(name) };
         invs.forEach(inv => {
           let due = inv.amount;
           if (remainingPaid > 0) {
@@ -3775,6 +4018,488 @@
         `;
         tbody.appendChild(tr);
       });
+    }
+
+    // ==========================================
+    // 8. ATTENDANCE MODULE (Biometric Workforce)
+    // ==========================================
+    const defaultEmployees = [
+      { id: 1, name: "SIVARAJ", role: "Employee", fingerprint: 1, status: "Active" },
+      { id: 2, name: "AJAY", role: "Employee", fingerprint: 2, status: "Active" },
+      { id: 3, name: "KANNAN", role: "Admin", fingerprint: 3, status: "Active" }
+    ];
+
+    let employeesList = JSON.parse(localStorage.getItem('vsg_roster_employees')) || defaultEmployees;
+    let attendanceEvents = JSON.parse(localStorage.getItem('vsg_roster_events')) || [];
+    let attendanceModuleStarted = false;
+    let attendanceEnrollTimeoutHandle = null;
+    let attendanceEnrollUnsubscribe = null;
+
+    function updateAttendanceTodayBadge() {
+      const now = new Date();
+      const options = { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' };
+      const formatted = now.toLocaleDateString('en-GB', options);
+      const el = document.getElementById('liveTodayText');
+      if (el) el.textContent = `Today: ${formatted}`;
+    }
+
+    function initAttendanceModule() {
+      updateAttendanceTodayBadge();
+      if (!attendanceModuleStarted) {
+        attendanceModuleStarted = true;
+        setInterval(updateAttendanceTodayBadge, 60000);
+
+        if (isCloudActive) {
+          db.collection("attendance_employees").onSnapshot((snapshot) => {
+            if (!snapshot.empty) {
+              const emps = [];
+              snapshot.forEach(doc => emps.push(doc.data()));
+              employeesList = emps;
+              localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
+              renderEmployeeDirectory();
+              calculateMonthlyMetrics();
+            } else {
+              defaultEmployees.forEach(emp => {
+                db.collection("attendance_employees").doc(String(emp.id)).set(emp);
+              });
+            }
+          });
+
+          db.collection("attendance_events").onSnapshot((snapshot) => {
+            const events = [];
+            snapshot.forEach(doc => {
+              const data = doc.data();
+              data._docId = doc.id;
+              events.push(data);
+            });
+            attendanceEvents = events;
+            localStorage.setItem('vsg_roster_events', JSON.stringify(attendanceEvents));
+            if (document.getElementById('tabAttendance') && !document.getElementById('tabAttendance').classList.contains('hidden')) {
+              renderDailyAttendanceTable();
+              calculateMonthlyMetrics();
+            }
+          });
+        }
+      }
+
+      const now = new Date();
+      const yr = now.getFullYear();
+      const mo = String(now.getMonth() + 1).padStart(2, '0');
+      if (!document.getElementById('dashboardMonthPicker').value) {
+        document.getElementById('dashboardMonthPicker').value = `${yr}-${mo}`;
+      }
+
+      renderEmployeeDirectory();
+      renderDailyAttendanceTable();
+      calculateMonthlyMetrics();
+    }
+
+    function syncAttendance() {
+      renderEmployeeDirectory();
+      renderDailyAttendanceTable();
+      calculateMonthlyMetrics();
+    }
+
+    async function handleSaveEmployee(e) {
+      e.preventDefault();
+      const id = parseInt(document.getElementById('empIdInput').value);
+      const name = document.getElementById('empNameInput').value.trim().toUpperCase();
+      const role = document.getElementById('empRoleInput').value;
+      const status = document.getElementById('empStatusInput').value;
+
+      if (!id || !name) return;
+
+      const empData = { id, name, role, fingerprint: id, status };
+
+      if (isCloudActive) {
+        await db.collection("attendance_employees").doc(String(id)).set(empData);
+      }
+
+      const idx = employeesList.findIndex(em => em.id === id);
+      if (idx !== -1) employeesList[idx] = empData;
+      else employeesList.push(empData);
+
+      localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
+      logAudit('EMPLOYEE_SAVE', `Employee #${id} (${name}) — ${role}`);
+      renderEmployeeDirectory();
+      document.getElementById('empIdInput').value = '';
+      document.getElementById('empNameInput').value = '';
+    }
+
+    async function deleteEmployee(id) {
+      const adminPin = (profile && profile.adminPin) ? profile.adminPin : 'vsg69';
+      const pass = prompt(`Admin PIN required to delete Employee #${id}:`);
+      if (pass === null) return;
+      if (pass !== adminPin) {
+        alert("Incorrect PIN! Deletion cancelled.");
+        return;
+      }
+
+      if (confirm(`Are you sure you want to permanently remove Employee #${id}?`)) {
+        if (isCloudActive) {
+          await db.collection("attendance_employees").doc(String(id)).delete();
+        }
+        const emp = employeesList.find(e => e.id === id);
+        employeesList = employeesList.filter(e => e.id !== id);
+        localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
+        if (emp) logAudit('EMPLOYEE_DELETE', `Employee #${id} (${emp.name}) removed`);
+        renderEmployeeDirectory();
+        calculateMonthlyMetrics();
+      }
+    }
+
+    async function toggleEmployeeStatus(id) {
+      const emp = employeesList.find(e => e.id === id);
+      if (!emp) return;
+      emp.status = (emp.status === 'Active') ? 'Inactive' : 'Active';
+
+      if (isCloudActive) {
+        await db.collection("attendance_employees").doc(String(id)).set(emp);
+      }
+      localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
+      renderEmployeeDirectory();
+      calculateMonthlyMetrics();
+    }
+
+    async function triggerHardwareEnroll() {
+      const id = parseInt(document.getElementById('empIdInput').value);
+      const name = document.getElementById('empNameInput').value.trim().toUpperCase();
+
+      if (!id || !name) {
+        alert("Please enter both ID and Name to enroll fingerprint.");
+        return;
+      }
+
+      if (attendanceEnrollUnsubscribe) { attendanceEnrollUnsubscribe(); attendanceEnrollUnsubscribe = null; }
+      if (attendanceEnrollTimeoutHandle) { clearTimeout(attendanceEnrollTimeoutHandle); attendanceEnrollTimeoutHandle = null; }
+
+      const badge = document.getElementById('enrollmentStatusBadge');
+      badge.classList.remove('hidden');
+      badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 animate-pulse";
+      badge.textContent = `Place finger on sensor for ID #${id} (${name})...`;
+
+      if (!isCloudActive) {
+        badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800";
+        badge.textContent = "Cloud offline — cannot reach enrollment terminal.";
+        setTimeout(() => badge.classList.add('hidden'), 5000);
+        return;
+      }
+
+      await db.collection("enroll_request").doc("active").set({ id, name, active: true, timestamp: Date.now() });
+
+      attendanceEnrollUnsubscribe = db.collection("enroll_status").doc("active").onSnapshot((doc) => {
+        if (doc.exists) {
+          const data = doc.data();
+          if (data.id === id) {
+            if (data.status === "SUCCESS") {
+              badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800";
+              badge.textContent = `Fingerprint for ID #${id} Enrolled Successfully!`;
+            } else {
+              badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800";
+              badge.textContent = `Enrollment failed or timed out.`;
+            }
+            setTimeout(() => badge.classList.add('hidden'), 5000);
+            if (attendanceEnrollUnsubscribe) { attendanceEnrollUnsubscribe(); attendanceEnrollUnsubscribe = null; }
+            if (attendanceEnrollTimeoutHandle) { clearTimeout(attendanceEnrollTimeoutHandle); attendanceEnrollTimeoutHandle = null; }
+          }
+        }
+      });
+
+      // Safety timeout: stop listening after 30s so a silent terminal never leaves this hanging
+      attendanceEnrollTimeoutHandle = setTimeout(() => {
+        badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800";
+        badge.textContent = "No response from terminal (timed out after 30s).";
+        setTimeout(() => badge.classList.add('hidden'), 5000);
+        if (attendanceEnrollUnsubscribe) { attendanceEnrollUnsubscribe(); attendanceEnrollUnsubscribe = null; }
+      }, 30000);
+    }
+
+    function renderEmployeeDirectory() {
+      const tbody = document.getElementById('employeeDirectoryTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      [...employeesList].sort((a, b) => a.id - b.id).forEach(emp => {
+        const isAdmin = emp.role === 'Admin';
+        const isActive = emp.status === 'Active';
+        const fpSlot = emp.fingerprint || emp.id;
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b';
+        tr.innerHTML = `
+          <td class="py-3 px-4 text-center font-mono font-black text-indigo-700 cursor-pointer" onclick="openAttendanceProfileModal(${emp.id})">${emp.id}</td>
+          <td class="py-3 px-4 font-bold text-slate-900 cursor-pointer" onclick="openAttendanceProfileModal(${emp.id})">
+            ${emp.name} <span class="text-[10px] text-blue-600 font-semibold underline ml-1">Profile ↗</span>
+          </td>
+          <td class="py-3 px-4 cursor-pointer" onclick="openAttendanceProfileModal(${emp.id})">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black ${isAdmin ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'}">${emp.role}</span>
+          </td>
+          <td class="py-3 px-4 text-center font-mono font-bold text-slate-700 cursor-pointer" onclick="openAttendanceProfileModal(${emp.id})">${fpSlot}</td>
+          <td class="py-3 px-4 text-center cursor-pointer" onclick="openAttendanceProfileModal(${emp.id})">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black ${isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">${emp.status}</span>
+          </td>
+          <td class="py-3 px-4 text-center space-x-3">
+            <button onclick="toggleEmployeeStatus(${emp.id})" class="text-xs font-bold text-slate-600 hover:text-slate-900 underline">${isActive ? 'Deactivate' : 'Activate'}</button>
+            <button onclick="deleteEmployee(${emp.id})" class="text-xs font-bold text-rose-600 hover:text-rose-800 underline">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function parseTimeToSeconds(timeStr) {
+      if (!timeStr) return null;
+      const clean = timeStr.trim();
+      const parts = clean.split(' ');
+      const timeParts = parts[0].split(':');
+      let hours = parseInt(timeParts[0], 10);
+      let mins = parseInt(timeParts[1], 10);
+      let secs = timeParts[2] ? parseInt(timeParts[2], 10) : 0;
+      if (isNaN(hours) || isNaN(mins)) return null;
+
+      if (parts[1]) {
+        const meridiem = parts[1].toUpperCase();
+        if (meridiem === 'PM' && hours < 12) hours += 12;
+        if (meridiem === 'AM' && hours === 12) hours = 0;
+      }
+      return (hours * 3600) + (mins * 60) + (secs || 0);
+    }
+
+    function formatSecondsToDisplay(totalSecs) {
+      if (totalSecs == null || isNaN(totalSecs) || totalSecs <= 0) return '-';
+      const h = Math.floor(totalSecs / 3600);
+      const m = Math.floor((totalSecs % 3600) / 60);
+      const s = Math.floor(totalSecs % 60);
+      if (h > 0) return `${h}h ${m}m`;
+      if (m > 0) return `${m}m ${s}s`;
+      return `${s}s`;
+    }
+
+    function getGroupedDailyAttendance() {
+      const dailyMap = {};
+      attendanceEvents.forEach(evt => {
+        const rawDate = evt.date;
+        const key = `${rawDate}_${evt.id}`;
+
+        if (!dailyMap[key]) {
+          dailyMap[key] = { date: rawDate, id: evt.id, name: evt.name, checkIn: null, lunchOut: null, lunchIn: null, checkOut: null, eventDocIds: [] };
+        }
+        if (evt._docId) dailyMap[key].eventDocIds.push(evt._docId);
+
+        const ev = (evt.event || '').toUpperCase();
+        if (ev.includes('CHECK IN') && !dailyMap[key].checkIn) dailyMap[key].checkIn = evt.time;
+        else if (ev.includes('LUNCH OUT')) dailyMap[key].lunchOut = evt.time;
+        else if (ev.includes('LUNCH IN')) dailyMap[key].lunchIn = evt.time;
+        else if (ev.includes('CHECK OUT')) dailyMap[key].checkOut = evt.time;
+      });
+      return Object.values(dailyMap);
+    }
+
+    // BUGFIX: filter grouped records to a given YYYY-MM month
+    function filterRecordsByMonth(records, monthVal) {
+      if (!monthVal) return records;
+      return records.filter(r => (r.date || '').slice(0, 7) === monthVal);
+    }
+
+    async function deleteDailyLog(dateStr, empId) {
+      const adminPin = (profile && profile.adminPin) ? profile.adminPin : 'vsg69';
+      const pass = prompt(`Admin PIN required to delete log for Employee #${empId} on ${dateStr}:`);
+      if (pass === null) return;
+      if (pass !== adminPin) {
+        alert("Incorrect PIN! Deletion cancelled.");
+        return;
+      }
+
+      if (confirm(`Confirm permanent deletion of attendance log for Employee #${empId} on ${dateStr}?`)) {
+        if (isCloudActive) {
+          const toDelete = attendanceEvents.filter(e => e.date === dateStr && e.id === empId);
+          for (const ev of toDelete) {
+            if (ev._docId) await db.collection("attendance_events").doc(ev._docId).delete();
+          }
+        }
+        attendanceEvents = attendanceEvents.filter(e => !(e.date === dateStr && e.id === empId));
+        localStorage.setItem('vsg_roster_events', JSON.stringify(attendanceEvents));
+        logAudit('ATTENDANCE_DELETE', `Attendance log for employee #${empId} on ${dateStr} deleted`);
+        renderDailyAttendanceTable();
+        calculateMonthlyMetrics();
+      }
+    }
+
+    function renderDailyAttendanceTable() {
+      const tbody = document.getElementById('dailyAttendanceTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      const filterDate = document.getElementById('attendanceDateFilter').value;
+      const records = getGroupedDailyAttendance();
+
+      // BUGFIX: exact-match date filter instead of fragile .includes() substring matching
+      const filtered = records.filter(r => !filterDate || r.date === filterDate);
+      filtered.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-slate-400 font-medium">No biometric records logged. Present employees at the scanner.</td></tr>`;
+        return;
+      }
+
+      filtered.forEach(rec => {
+        const inSec = parseTimeToSeconds(rec.checkIn);
+        const lOutSec = parseTimeToSeconds(rec.lunchOut);
+        const lInSec = parseTimeToSeconds(rec.lunchIn);
+        const outSec = parseTimeToSeconds(rec.checkOut);
+
+        let lunchSecs = null;
+        if (lOutSec != null && lInSec != null) lunchSecs = Math.abs(lInSec - lOutSec);
+
+        let workSecs = null;
+        if (inSec != null && outSec != null) {
+          let grossSecs = Math.abs(outSec - inSec);
+          workSecs = Math.max(0, grossSecs - (lunchSecs || 0));
+        }
+
+        let statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">PRESENT</span>`;
+        if (rec.lunchOut && !rec.lunchIn) {
+          statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">ON LUNCH</span>`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b';
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-mono font-bold text-slate-800">${rec.date}</td>
+          <td class="py-3 px-4 font-bold text-slate-900">${rec.name}</td>
+          <td class="py-3 px-3 text-center font-mono font-bold text-emerald-700">${rec.checkIn || '-'}</td>
+          <td class="py-3 px-3 text-center font-mono font-bold text-amber-700">${rec.lunchOut || '-'}</td>
+          <td class="py-3 px-3 text-center font-mono font-bold text-blue-700">${rec.lunchIn || '-'}</td>
+          <td class="py-3 px-3 text-center font-mono font-bold text-rose-700">${rec.checkOut || '-'}</td>
+          <td class="py-3 px-3 text-center font-mono text-slate-700 font-bold">${formatSecondsToDisplay(lunchSecs)}</td>
+          <td class="py-3 px-3 text-center font-mono font-black text-indigo-700 text-sm">${formatSecondsToDisplay(workSecs)}</td>
+          <td class="py-3 px-3 text-center">${statusBadge}</td>
+          <td class="py-3 px-3 text-center">
+            <button onclick="deleteDailyLog('${rec.date}', ${rec.id})" class="text-xs font-bold text-rose-600 hover:text-rose-800 underline">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function clearDateFilter() {
+      document.getElementById('attendanceDateFilter').value = '';
+      renderDailyAttendanceTable();
+    }
+
+    function calculateMonthlyMetrics() {
+      const monthVal = document.getElementById('dashboardMonthPicker').value || "2026-10";
+      // BUGFIX: records were never actually filtered to the selected month before — KPIs always showed all-time totals
+      const records = filterRecordsByMonth(getGroupedDailyAttendance(), monthVal);
+
+      let totalPresentDays = 0;
+      let totalWorkSeconds = 0;
+      let totalLunchSeconds = 0;
+      const loggedDatesSet = new Set();
+
+      records.forEach(rec => {
+        if (rec.checkIn) {
+          totalPresentDays++;
+          loggedDatesSet.add(rec.date);
+
+          const inSec = parseTimeToSeconds(rec.checkIn);
+          const lOutSec = parseTimeToSeconds(rec.lunchOut);
+          const lInSec = parseTimeToSeconds(rec.lunchIn);
+          const outSec = parseTimeToSeconds(rec.checkOut);
+
+          let lunch = (lOutSec != null && lInSec != null) ? Math.abs(lInSec - lOutSec) : 0;
+          totalLunchSeconds += lunch;
+
+          let work = (inSec != null && outSec != null) ? Math.max(0, Math.abs(outSec - inSec) - lunch) : (8 * 3600);
+          totalWorkSeconds += work;
+        }
+      });
+
+      const activeEmployeesCount = employeesList.filter(e => e.status === 'Active').length || employeesList.length;
+      const totalFactoryWorkingDaysLogged = loggedDatesSet.size;
+      const expectedTotalShifts = activeEmployeesCount * totalFactoryWorkingDaysLogged;
+      const absentDays = Math.max(0, expectedTotalShifts - totalPresentDays);
+      const avgSecondsPerShift = totalPresentDays > 0 ? Math.round(totalWorkSeconds / totalPresentDays) : 0;
+
+      document.getElementById('kpiPresentDays').textContent = totalPresentDays;
+      document.getElementById('kpiAbsentDays').textContent = absentDays;
+      document.getElementById('kpiTotalWork').textContent = formatSecondsToDisplay(totalWorkSeconds);
+      document.getElementById('kpiAvgWork').textContent = formatSecondsToDisplay(avgSecondsPerShift);
+      document.getElementById('kpiTotalLunch').textContent = formatSecondsToDisplay(totalLunchSeconds);
+    }
+
+    function openAttendanceProfileModal(empId) {
+      const emp = employeesList.find(e => e.id === empId);
+      if (!emp) return;
+
+      document.getElementById('modalEmpName').textContent = emp.name;
+      document.getElementById('modalEmpDetails').textContent = `Employee ID: ${emp.id} | Role: ${emp.role} | Fingerprint Slot: ${emp.fingerprint || emp.id}`;
+
+      const monthPickerVal = document.getElementById('dashboardMonthPicker').value || "2026-10";
+      const parts = monthPickerVal.split('-');
+      const monthNames = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+      const currentMonthName = monthNames[parseInt(parts[1], 10) - 1] || "OCTOBER";
+      document.getElementById('modalMonthTitle').textContent = `${currentMonthName} ${parts[0]}`;
+
+      // BUGFIX: modal previously showed ALL-time records regardless of the selected month,
+      // which disagreed with the dashboard KPIs above it. Now scoped to the same month.
+      const allRecordsAllTime = getGroupedDailyAttendance().filter(r => r.id === empId);
+      const allRecords = filterRecordsByMonth(allRecordsAllTime, monthPickerVal);
+
+      let presentDays = 0;
+      let totalWorkSecs = 0;
+      let totalLunchSecs = 0;
+
+      const timelineBody = document.getElementById('modalTimelineBody');
+      timelineBody.innerHTML = '';
+
+      if (allRecords.length === 0) {
+        timelineBody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400 font-medium">No recorded shifts for ${emp.name} this month.</td></tr>`;
+      } else {
+        allRecords.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        allRecords.forEach(rec => {
+          presentDays++;
+          const inSec = parseTimeToSeconds(rec.checkIn);
+          const lOutSec = parseTimeToSeconds(rec.lunchOut);
+          const lInSec = parseTimeToSeconds(rec.lunchIn);
+          const outSec = parseTimeToSeconds(rec.checkOut);
+
+          let lunch = (lOutSec != null && lInSec != null) ? Math.abs(lInSec - lOutSec) : 0;
+          totalLunchSecs += lunch;
+
+          let work = (inSec != null && outSec != null) ? Math.max(0, Math.abs(outSec - inSec) - lunch) : 0;
+          totalWorkSecs += work;
+
+          const tr = document.createElement('tr');
+          tr.className = 'border-b hover:bg-slate-50';
+          tr.innerHTML = `
+            <td class="py-2.5 px-3 font-mono font-bold">${rec.date}</td>
+            <td class="py-2.5 px-2 text-center font-mono text-emerald-700">${rec.checkIn || '-'}</td>
+            <td class="py-2.5 px-2 text-center font-mono text-amber-700">${rec.lunchOut || '-'}</td>
+            <td class="py-2.5 px-2 text-center font-mono text-blue-700">${rec.lunchIn || '-'}</td>
+            <td class="py-2.5 px-2 text-center font-mono text-rose-700">${rec.checkOut || '-'}</td>
+            <td class="py-2.5 px-2 text-center font-mono font-bold text-indigo-700">${formatSecondsToDisplay(work)}</td>
+            <td class="py-2.5 px-2 text-center"><span class="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">PRESENT</span></td>
+          `;
+          timelineBody.appendChild(tr);
+        });
+      }
+
+      const uniqueLoggedDates = new Set(filterRecordsByMonth(getGroupedDailyAttendance(), monthPickerVal).map(r => r.date)).size;
+      const absentDays = Math.max(0, uniqueLoggedDates - presentDays);
+      const avgSecs = presentDays > 0 ? Math.round(totalWorkSecs / presentDays) : 0;
+
+      document.getElementById('modalPresentDays').textContent = `${presentDays} days`;
+      document.getElementById('modalAbsentDays').textContent = `${absentDays} days`;
+      document.getElementById('modalWorkHours').textContent = formatSecondsToDisplay(totalWorkSecs);
+      document.getElementById('modalAvgDay').textContent = formatSecondsToDisplay(avgSecs);
+      document.getElementById('modalLunchTime').textContent = formatSecondsToDisplay(totalLunchSecs);
+
+      document.getElementById('attendanceProfileModal').classList.remove('hidden');
+    }
+
+    function closeProfileModal() {
+      document.getElementById('attendanceProfileModal').classList.add('hidden');
     }
   </script>
 </body>
