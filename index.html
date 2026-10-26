@@ -39,6 +39,21 @@
     .dark .text-amber-900, .dark .text-amber-800 { color: #fcd34d !important; }
     .dark .text-purple-900, .dark .text-purple-800 { color: #d8b4fe !important; }
 
+    /* PRINT: invoice & quotation text at 11pt. Only font size changes - widths, borders and structure stay the same. */
+    @media print {
+      #printableInvoiceWrapper, #printableQuotationWrapper { font-size: 11pt; }
+      #printableInvoiceWrapper .text-xs, #printableQuotationWrapper .text-xs,
+      #printableInvoiceWrapper .text-\[9px\], #printableQuotationWrapper .text-\[9px\],
+      #printableInvoiceWrapper .text-\[10px\], #printableQuotationWrapper .text-\[10px\],
+      #printableInvoiceWrapper .text-\[11px\], #printableQuotationWrapper .text-\[11px\],
+      #printableInvoiceWrapper .text-\[12px\], #printableQuotationWrapper .text-\[12px\],
+      #printableInvoiceWrapper .text-\[13px\], #printableQuotationWrapper .text-\[13px\] { font-size: 11pt !important; }
+      #printableInvoiceWrapper .text-sm, #printableQuotationWrapper .text-sm,
+      #printableInvoiceWrapper .text-\[14px\], #printableQuotationWrapper .text-\[14px\],
+      #printableInvoiceWrapper .text-\[15px\], #printableQuotationWrapper .text-\[15px\],
+      #printableInvoiceWrapper .text-base, #printableQuotationWrapper .text-base { font-size: 12pt !important; }
+    }
+
     .spin-active { animation: spin 0.7s linear infinite; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
 
@@ -941,62 +956,111 @@
       <!-- ============ ATTENDANCE TAB ============ -->
       <section id="tabAttendance" class="hidden space-y-6 no-print">
 
-        <!-- MONTHLY ANALYTICS -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
-          <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 gap-4">
-            <div>
-              <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>📊</span> Monthly Attendance Analytics</h2>
-              <p class="text-xs text-slate-500">Live operational hours and Month-To-Date (MTD) attendance calculations.</p>
+        <!-- QUICK GUIDE -->
+        <div class="bg-blue-50/80 border border-blue-200 rounded-2xl p-4 text-xs text-slate-700">
+          <p class="font-black text-blue-900 mb-1.5">ℹ️ How this page works</p>
+          <ul class="list-disc pl-5 space-y-0.5">
+            <li>Employees scan their finger on the machine (check in, lunch out, lunch in, check out). Everything shows up here automatically.</li>
+            <li>Pay = hours worked × hourly rate. Hourly rate = the employee's <b>Daily Wage ÷ 8 hours</b>. Each employee can have a different Daily Wage.</li>
+            <li><b>Monday to Saturday</b> is normal work. <b>Sunday work is counted as OT (overtime).</b></li>
+            <li>The <b>Weekly Salary Sheet</b> adds up the week so on Saturday you can see exactly what to pay each person.</li>
+          </ul>
+        </div>
+
+        <!-- TODAY AT A GLANCE -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>🟢</span> Today at a Glance</h2>
+            <span id="liveTodayBadge" class="px-3 py-1 bg-blue-50 text-blue-800 border border-blue-200 rounded-full font-mono text-xs font-extrabold flex items-center gap-1.5 shadow-sm">
+              <span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+              <span id="liveTodayText">Today: Loading...</span>
+            </span>
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Working Now</p>
+              <p id="todayWorking" class="text-2xl font-black font-mono text-emerald-700">0</p>
             </div>
-            <div class="flex items-center gap-2 flex-wrap">
-              <label class="text-xs font-bold text-slate-600">Month:</label>
-              <input type="month" id="dashboardMonthPicker" onchange="calculateMonthlyMetrics()" class="px-3 py-1.5 text-xs border rounded-lg bg-white font-mono font-bold text-blue-700 shadow-sm outline-none">
-              <button onclick="syncAttendance()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition">🔄 Refresh</button>
+            <div class="p-3 bg-amber-50/80 border border-amber-200 rounded-xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-amber-800">On Lunch</p>
+              <p id="todayLunch" class="text-2xl font-black font-mono text-amber-700">0</p>
+            </div>
+            <div class="p-3 bg-blue-50/80 border border-blue-200 rounded-xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-blue-800">Left for the Day</p>
+              <p id="todayDone" class="text-2xl font-black font-mono text-blue-700">0</p>
+            </div>
+            <div class="p-3 bg-rose-50/80 border border-rose-200 rounded-xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-rose-800">Not In Yet</p>
+              <p id="todayNotIn" class="text-2xl font-black font-mono text-rose-700">0</p>
             </div>
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div class="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl">
-              <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Present (MTD)</p>
-              <p id="kpiPresentDays" class="text-2xl font-black font-mono text-emerald-700 mt-1">0</p>
-              <span class="text-[10px] text-emerald-600 font-medium">Logged employee shifts</span>
+        </div>
+
+        <!-- WEEKLY SALARY SHEET -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+          <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center pb-3 border-b border-slate-100 gap-4">
+            <div>
+              <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>🧾</span> Weekly Salary Sheet</h2>
+              <p class="text-xs text-slate-500">Monday to Saturday work + Sunday OT, added up per employee. Pay the <b>Week Total</b> on Saturday.</p>
             </div>
-            <div class="p-4 bg-rose-50/80 border border-rose-200 rounded-2xl">
-              <p class="text-[11px] font-bold uppercase tracking-wider text-rose-800">Absent (MTD)</p>
-              <p id="kpiAbsentDays" class="text-2xl font-black font-mono text-rose-700 mt-1">0</p>
-              <span class="text-[10px] text-rose-500 font-medium">Logged factory days missed</span>
+            <div class="flex items-center gap-2 flex-wrap">
+              <button onclick="shiftSalaryWeek(-1)" class="px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition">◀ Previous</button>
+              <span id="weekRangeLabel" class="px-3 py-1.5 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg font-mono text-xs font-extrabold">-</span>
+              <button onclick="shiftSalaryWeek(1)" class="px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition">Next ▶</button>
+              <button onclick="goToThisWeek()" class="px-3 py-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">This Week</button>
             </div>
-            <div class="p-4 bg-blue-50/80 border border-blue-200 rounded-2xl">
-              <p class="text-[11px] font-bold uppercase tracking-wider text-blue-800">Total Work Hours</p>
-              <p id="kpiTotalWork" class="text-2xl font-black font-mono text-blue-700 mt-1">0h 0m</p>
-              <span class="text-[10px] text-blue-600 font-medium">Net productive time</span>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                  <th class="py-3 px-3">Employee</th>
+                  <th class="py-3 px-2 text-center">Mon</th>
+                  <th class="py-3 px-2 text-center">Tue</th>
+                  <th class="py-3 px-2 text-center">Wed</th>
+                  <th class="py-3 px-2 text-center">Thu</th>
+                  <th class="py-3 px-2 text-center">Fri</th>
+                  <th class="py-3 px-2 text-center">Sat</th>
+                  <th class="py-3 px-2 text-center text-amber-700">Sun (OT)</th>
+                  <th class="py-3 px-3 text-right">Week Total</th>
+                  <th class="py-3 px-3 text-right">Paid</th>
+                  <th class="py-3 px-3 text-right">Still Due</th>
+                  <th class="py-3 px-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="weeklySalaryBody" class="divide-y divide-slate-100"></tbody>
+              <tfoot>
+                <tr class="bg-emerald-50 font-black text-emerald-900 border-t-2 border-emerald-200">
+                  <td colspan="8" class="py-3 px-3 text-right uppercase text-[11px] tracking-wider">All Employees</td>
+                  <td id="weekTotalAmount" class="py-3 px-3 text-right font-mono">₹0.00</td>
+                  <td id="weekTotalPaid" class="py-3 px-3 text-right font-mono">₹0.00</td>
+                  <td id="weekTotalDue" class="py-3 px-3 text-right font-mono">₹0.00</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <p class="text-[11px] text-slate-500">Each box shows hours worked and the amount earned that day. A <b>*</b> means the employee forgot to check out, so a normal 8-hour day was assumed. A Sunday with no check-out counts as 0 until fixed.</p>
+
+          <div class="flex flex-wrap items-end gap-3 bg-slate-50 border border-slate-200 rounded-xl p-3">
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 mb-1">Download attendance for month</label>
+              <input type="month" id="csvMonthPicker" class="px-3 py-1.5 text-xs border rounded-lg bg-white font-mono font-bold text-blue-700 outline-none">
             </div>
-            <div class="p-4 bg-purple-50/80 border border-purple-200 rounded-2xl">
-              <p class="text-[11px] font-bold uppercase tracking-wider text-purple-800">Avg Hours / Shift</p>
-              <p id="kpiAvgWork" class="text-2xl font-black font-mono text-purple-700 mt-1">0h 0m</p>
-              <span class="text-[10px] text-purple-600 font-medium">Per present employee</span>
-            </div>
-            <div class="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl">
-              <p class="text-[11px] font-bold uppercase tracking-wider text-amber-800">Total Lunch Time</p>
-              <p id="kpiTotalLunch" class="text-2xl font-black font-mono text-amber-700 mt-1">0h 0m</p>
-              <span class="text-[10px] text-amber-600 font-medium">Across all breaks</span>
-            </div>
+            <button onclick="downloadAttendanceCSV()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition">⬇ Download Attendance CSV</button>
+            <p class="text-[11px] text-slate-500 flex-1 min-w-[220px]">Opens in Excel. Contains employee name, attendance log week by week, and the total amount for each week.</p>
           </div>
         </div>
 
         <!-- DAILY ATTENDANCE LOG -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
           <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-3 border-b border-slate-100 gap-4">
-            <div class="flex items-center gap-3">
-              <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>📅</span> Daily Attendance Log</h2>
-              <span id="liveTodayBadge" class="px-3 py-1 bg-blue-50 text-blue-800 border border-blue-200 rounded-full font-mono text-xs font-extrabold flex items-center gap-1.5 shadow-sm">
-                <span class="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
-                <span id="liveTodayText">Today: Loading...</span>
-              </span>
-            </div>
+            <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>📅</span> Daily Attendance Log</h2>
             <div class="flex items-center gap-2 flex-wrap">
-              <label class="text-xs font-bold text-slate-600">Filter Date:</label>
+              <label class="text-xs font-bold text-slate-600">Show only date:</label>
               <input type="date" id="attendanceDateFilter" onchange="renderDailyAttendanceTable()" class="px-3 py-1.5 text-xs border rounded-lg bg-white font-medium text-slate-700 shadow-sm outline-none">
-              <button onclick="clearDateFilter()" class="px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition">Clear Filter</button>
+              <button onclick="clearDateFilter()" class="px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition">Show All</button>
             </div>
           </div>
           <div class="overflow-x-auto border border-slate-200 rounded-xl">
@@ -1009,8 +1073,9 @@
                   <th class="py-3 px-3 text-center text-amber-700">Lunch Out</th>
                   <th class="py-3 px-3 text-center text-blue-700">Lunch In</th>
                   <th class="py-3 px-3 text-center text-rose-700">Check Out</th>
-                  <th class="py-3 px-3 text-center text-slate-700 font-bold">Lunch Duration</th>
-                  <th class="py-3 px-3 text-center font-black text-indigo-700">Work Hours</th>
+                  <th class="py-3 px-3 text-center">Lunch Time</th>
+                  <th class="py-3 px-3 text-center font-black text-indigo-700">Hours Worked</th>
+                  <th class="py-3 px-3 text-right font-black text-emerald-700">Earned (₹)</th>
                   <th class="py-3 px-3 text-center">Status</th>
                   <th class="py-3 px-3 text-center">Action</th>
                 </tr>
@@ -1020,17 +1085,64 @@
           </div>
         </div>
 
+        <!-- MONTHLY ANALYTICS -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 gap-4">
+            <div>
+              <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>📊</span> Monthly Summary</h2>
+              <p class="text-xs text-slate-500">Totals for the month you pick. Sundays are OT, so they are not counted as "absent" for anyone.</p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <label class="text-xs font-bold text-slate-600">Month:</label>
+              <input type="month" id="dashboardMonthPicker" onchange="calculateMonthlyMetrics()" class="px-3 py-1.5 text-xs border rounded-lg bg-white font-mono font-bold text-blue-700 shadow-sm outline-none">
+              <button onclick="syncAttendance()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow-sm transition">🔄 Refresh</button>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 lg:grid-cols-6 gap-4">
+            <div class="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Shifts Present</p>
+              <p id="kpiPresentDays" class="text-2xl font-black font-mono text-emerald-700 mt-1">0</p>
+              <span class="text-[10px] text-emerald-600 font-medium">Including Sunday OT</span>
+            </div>
+            <div class="p-4 bg-rose-50/80 border border-rose-200 rounded-2xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-rose-800">Shifts Missed</p>
+              <p id="kpiAbsentDays" class="text-2xl font-black font-mono text-rose-700 mt-1">0</p>
+              <span class="text-[10px] text-rose-500 font-medium">Mon–Sat only</span>
+            </div>
+            <div class="p-4 bg-blue-50/80 border border-blue-200 rounded-2xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-blue-800">Total Work Hours</p>
+              <p id="kpiTotalWork" class="text-2xl font-black font-mono text-blue-700 mt-1">0h 0m</p>
+              <span class="text-[10px] text-blue-600 font-medium">After lunch is removed</span>
+            </div>
+            <div class="p-4 bg-purple-50/80 border border-purple-200 rounded-2xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-purple-800">Avg Hours / Shift</p>
+              <p id="kpiAvgWork" class="text-2xl font-black font-mono text-purple-700 mt-1">0h 0m</p>
+              <span class="text-[10px] text-purple-600 font-medium">Per shift worked</span>
+            </div>
+            <div class="p-4 bg-amber-50/80 border border-amber-200 rounded-2xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-amber-800">Total Lunch Time</p>
+              <p id="kpiTotalLunch" class="text-2xl font-black font-mono text-amber-700 mt-1">0h 0m</p>
+              <span class="text-[10px] text-amber-600 font-medium">Across all breaks</span>
+            </div>
+            <div class="p-4 bg-cyan-50/80 border border-cyan-200 rounded-2xl">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-cyan-800">Wages Earned</p>
+              <p id="kpiMonthWages" class="text-2xl font-black font-mono text-cyan-700 mt-1">₹0</p>
+              <span id="kpiMonthOT" class="text-[10px] text-cyan-600 font-medium">incl. OT ₹0</span>
+            </div>
+          </div>
+        </div>
+
         <!-- EMPLOYEE DIRECTORY & ENROLLMENT -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3 border-b border-slate-100 gap-3">
             <div>
-              <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>👥</span> Employee Directory & Terminal Enrollment</h2>
-              <p class="text-xs text-slate-500">Configure employees, roles, and hardware fingerprint links. Updates sync directly to the ESP32.</p>
+              <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>👥</span> Employees & Daily Wage</h2>
+              <p class="text-xs text-slate-500">Add an employee, set their own Daily Wage (for an 8 hour day), and link their fingerprint. Click <b>Edit</b> on a row to change someone.</p>
             </div>
             <div id="enrollmentStatusBadge" class="hidden px-3 py-1 rounded-full text-xs font-bold"></div>
           </div>
 
-          <form onsubmit="handleSaveEmployee(event)" class="grid grid-cols-1 sm:grid-cols-5 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <form onsubmit="handleSaveEmployee(event)" class="grid grid-cols-1 sm:grid-cols-6 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div>
               <label class="block text-[11px] font-bold text-slate-700 mb-1">Employee ID</label>
               <input type="number" id="empIdInput" required min="1" placeholder="e.g. 1" class="w-full px-3 py-2 border rounded-lg text-xs bg-white font-mono font-bold outline-none">
@@ -1053,9 +1165,13 @@
                 <option value="Inactive">Inactive</option>
               </select>
             </div>
+            <div>
+              <label class="block text-[11px] font-bold text-slate-700 mb-1">Daily Wage (₹ for 8 hrs)</label>
+              <input type="number" id="empWageInput" min="0" step="1" placeholder="e.g. 500" class="w-full px-3 py-2 border rounded-lg text-xs bg-white font-mono font-bold text-emerald-700 outline-none">
+            </div>
             <div class="flex items-end gap-2">
-              <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-lg shadow-sm transition">Save Record</button>
-              <button type="button" onclick="triggerHardwareEnroll()" class="px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-lg shadow-sm transition whitespace-nowrap" title="Send scan command to ESP32">Scan Finger</button>
+              <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-lg shadow-sm transition">Save</button>
+              <button type="button" onclick="triggerHardwareEnroll()" class="px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-2.5 rounded-lg shadow-sm transition whitespace-nowrap" title="Send scan command to the fingerprint machine">Scan Finger</button>
             </div>
           </form>
 
@@ -1067,12 +1183,92 @@
                   <th class="py-3 px-4">Name</th>
                   <th class="py-3 px-4">Role</th>
                   <th class="py-3 px-4 text-center">Fingerprint Slot</th>
+                  <th class="py-3 px-4 text-center">Daily Wage</th>
+                  <th class="py-3 px-4 text-center">Hourly Rate</th>
                   <th class="py-3 px-4 text-center">Status</th>
                   <th class="py-3 px-4 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody id="employeeDirectoryTableBody" class="divide-y divide-slate-100"></tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- WAGES & PAYMENTS -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-3 border-b border-slate-100 gap-3">
+            <div>
+              <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>💰</span> Wages Paid & Balance</h2>
+              <p class="text-xs text-slate-500">Everything each employee has earned, what you have paid, and what is still due.</p>
+            </div>
+            <div class="flex items-end gap-2 bg-amber-50/80 border border-amber-200 rounded-xl px-3 py-2">
+              <div>
+                <label class="block text-[11px] font-bold text-amber-900 mb-1">Sunday OT pay = × normal rate</label>
+                <input type="number" id="otMultiplierInput" min="0" step="0.25" value="1" class="w-24 px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-mono font-bold text-amber-800">
+              </div>
+              <button onclick="saveOtMultiplier()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-sm transition">Save</button>
+            </div>
+          </div>
+
+          <div class="bg-emerald-50/80 border border-emerald-200 p-4 rounded-xl">
+            <h3 class="text-xs font-black uppercase tracking-wider text-emerald-900 mb-3">Record a Wage Payment</h3>
+            <form id="wagePayForm" onsubmit="handleRecordLabourPayment(event)" class="grid grid-cols-1 sm:grid-cols-5 gap-3">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Employee</label>
+                <select id="wagePayEmpSelect" required class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-semibold"></select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Date Paid</label>
+                <input type="date" id="wagePayDate" required class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Amount (₹)</label>
+                <input type="number" step="0.01" id="wagePayAmount" placeholder="e.g. 3000" required class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none font-mono font-bold text-emerald-700">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Note</label>
+                <input type="text" id="wagePayRemarks" placeholder="Optional" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg outline-none">
+              </div>
+              <div class="flex items-end">
+                <button type="submit" class="w-full px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition">+ Save Payment</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                  <th class="py-3 px-4">Employee</th>
+                  <th class="py-3 px-3 text-center">Daily Wage</th>
+                  <th class="py-3 px-3 text-center">Days Worked</th>
+                  <th class="py-3 px-3 text-center">Normal Hours</th>
+                  <th class="py-3 px-3 text-center text-amber-700">OT Hours</th>
+                  <th class="py-3 px-3 text-right">Total Earned</th>
+                  <th class="py-3 px-3 text-right">Total Paid</th>
+                  <th class="py-3 px-3 text-right">Balance Due</th>
+                </tr>
+              </thead>
+              <tbody id="labourWageTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+
+          <div>
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Recent Wage Payments</h4>
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                    <th class="py-2.5 px-4">Date</th>
+                    <th class="py-2.5 px-4">Employee</th>
+                    <th class="py-2.5 px-4">Note</th>
+                    <th class="py-2.5 px-4 text-right">Amount (₹)</th>
+                    <th class="py-2.5 px-4 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="labourPaymentsTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
@@ -2591,7 +2787,10 @@
         expenses: expenses,
         auditLog: auditLog,
         openingBalances: openingBalances,
-        userCycles: userCycles
+        userCycles: userCycles,
+        employeesList: employeesList,
+        labourPayments: labourPayments,
+        otMultiplier: otMultiplier
       };
 
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
@@ -2621,6 +2820,9 @@
               auditLog = parsed.auditLog || [];
               openingBalances = parsed.openingBalances || {};
               userCycles = parsed.userCycles || [];
+              employeesList = parsed.employeesList || employeesList;
+              labourPayments = parsed.labourPayments || [];
+              if (typeof parsed.otMultiplier === 'number') otMultiplier = parsed.otMultiplier;
 
               if (isCloudActive) {
                 await db.collection("settings").doc("profile").set(profile);
@@ -2630,6 +2832,8 @@
                 documents.forEach(d => b.set(db.collection("documents").doc(d.number), d));
                 payments.forEach(p => b.set(db.collection("payments").doc(String(p.id)), p));
                 expenses.forEach(x => b.set(db.collection("expenses").doc(String(x.id)), x));
+                employeesList.forEach(em => b.set(db.collection("attendance_employees").doc(String(em.id)), em));
+                labourPayments.forEach(wp => b.set(db.collection("labour_payments").doc(String(wp.id)), wp));
                 await b.commit();
               }
 
@@ -2640,6 +2844,9 @@
               localStorage.setItem('vsg_expenses', JSON.stringify(expenses));
               localStorage.setItem('vsg_audit_log', JSON.stringify(auditLog));
               localStorage.setItem('vsg_opening_balances', JSON.stringify(openingBalances));
+              localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
+              localStorage.setItem('vsg_labour_payments', JSON.stringify(labourPayments));
+              localStorage.setItem('vsg_ot_multiplier', String(otMultiplier));
               localStorage.setItem('vsg_user_cycles', JSON.stringify(userCycles));
 
               loadProfileToUI();
@@ -4021,33 +4228,70 @@
     }
 
     // ==========================================
-    // 8. ATTENDANCE MODULE (Biometric Workforce)
+    // 8. ATTENDANCE MODULE (Biometric Workforce, Weekly Salary, Sunday OT)
     // ==========================================
     const defaultEmployees = [
-      { id: 1, name: "SIVARAJ", role: "Employee", fingerprint: 1, status: "Active" },
-      { id: 2, name: "AJAY", role: "Employee", fingerprint: 2, status: "Active" },
-      { id: 3, name: "KANNAN", role: "Admin", fingerprint: 3, status: "Active" }
+      { id: 1, name: "SIVARAJ", role: "Employee", fingerprint: 1, status: "Active", dailyWage: 500 },
+      { id: 2, name: "AJAY", role: "Employee", fingerprint: 2, status: "Active", dailyWage: 500 },
+      { id: 3, name: "KANNAN", role: "Admin", fingerprint: 3, status: "Active", dailyWage: 500 }
     ];
 
     let employeesList = JSON.parse(localStorage.getItem('vsg_roster_employees')) || defaultEmployees;
     let attendanceEvents = JSON.parse(localStorage.getItem('vsg_roster_events')) || [];
+    let labourPayments = JSON.parse(localStorage.getItem('vsg_labour_payments')) || [];
+    let otMultiplier = parseFloat(localStorage.getItem('vsg_ot_multiplier'));
+    if (isNaN(otMultiplier) || otMultiplier < 0) otMultiplier = 1;
+    let salaryWeekStart = null;
     let attendanceModuleStarted = false;
     let attendanceEnrollTimeoutHandle = null;
     let attendanceEnrollUnsubscribe = null;
+    const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    // ---------- date helpers (all dates handled as local YYYY-MM-DD strings) ----------
+    function normalizeDateISO(str) {
+      if (!str) return '';
+      const s = String(str).trim();
+      let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+      if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
+      m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+      if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+      return s;
+    }
+    function isoToLocalDate(iso) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); }
+    function localDateToISO(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+    function getTodayISO() { return localDateToISO(new Date()); }
+    function addDaysISO(iso, n) { const d = isoToLocalDate(iso); d.setDate(d.getDate() + n); return localDateToISO(d); }
+    function getWeekStartISO(iso) { const d = isoToLocalDate(iso); const dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow); return localDateToISO(d); }
+    function isSundayISO(iso) { return isoToLocalDate(iso).getDay() === 0; }
 
     function updateAttendanceTodayBadge() {
       const now = new Date();
       const options = { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' };
-      const formatted = now.toLocaleDateString('en-GB', options);
       const el = document.getElementById('liveTodayText');
-      if (el) el.textContent = `Today: ${formatted}`;
+      if (el) el.textContent = `Today: ${now.toLocaleDateString('en-GB', options)}`;
+    }
+
+    function refreshAttendanceUI() {
+      renderEmployeeDirectory();
+      populateWagePayEmpSelect();
+      renderTodaySnapshot();
+      renderWeeklySalarySheet();
+      renderDailyAttendanceTable();
+      calculateMonthlyMetrics();
+      renderLabourWageTable();
+      renderLabourPaymentsList();
+    }
+
+    function attendanceTabVisible() {
+      const t = document.getElementById('tabAttendance');
+      return t && !t.classList.contains('hidden');
     }
 
     function initAttendanceModule() {
       updateAttendanceTodayBadge();
       if (!attendanceModuleStarted) {
         attendanceModuleStarted = true;
-        setInterval(updateAttendanceTodayBadge, 60000);
+        setInterval(() => { updateAttendanceTodayBadge(); if (attendanceTabVisible()) renderTodaySnapshot(); }, 60000);
 
         if (isCloudActive) {
           db.collection("attendance_employees").onSnapshot((snapshot) => {
@@ -4056,8 +4300,7 @@
               snapshot.forEach(doc => emps.push(doc.data()));
               employeesList = emps;
               localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
-              renderEmployeeDirectory();
-              calculateMonthlyMetrics();
+              if (attendanceTabVisible()) refreshAttendanceUI();
             } else {
               defaultEmployees.forEach(emp => {
                 db.collection("attendance_employees").doc(String(emp.id)).set(emp);
@@ -4074,30 +4317,56 @@
             });
             attendanceEvents = events;
             localStorage.setItem('vsg_roster_events', JSON.stringify(attendanceEvents));
-            if (document.getElementById('tabAttendance') && !document.getElementById('tabAttendance').classList.contains('hidden')) {
-              renderDailyAttendanceTable();
-              calculateMonthlyMetrics();
+            if (attendanceTabVisible()) refreshAttendanceUI();
+          });
+
+          db.collection("labour_payments").onSnapshot((snapshot) => {
+            const pays = [];
+            snapshot.forEach(doc => pays.push(doc.data()));
+            labourPayments = pays;
+            localStorage.setItem('vsg_labour_payments', JSON.stringify(labourPayments));
+            if (attendanceTabVisible()) {
+              renderWeeklySalarySheet();
+              renderLabourWageTable();
+              renderLabourPaymentsList();
+            }
+          });
+
+          db.collection("settings").doc("attendanceConfig").onSnapshot((docSnap) => {
+            if (docSnap.exists && typeof docSnap.data().otMultiplier === 'number') {
+              otMultiplier = docSnap.data().otMultiplier;
+              localStorage.setItem('vsg_ot_multiplier', String(otMultiplier));
+              const inp = document.getElementById('otMultiplierInput');
+              if (inp) inp.value = otMultiplier;
+              if (attendanceTabVisible()) refreshAttendanceUI();
             }
           });
         }
       }
 
-      const now = new Date();
-      const yr = now.getFullYear();
-      const mo = String(now.getMonth() + 1).padStart(2, '0');
-      if (!document.getElementById('dashboardMonthPicker').value) {
-        document.getElementById('dashboardMonthPicker').value = `${yr}-${mo}`;
-      }
+      const monthNow = getTodayISO().slice(0, 7);
+      if (!document.getElementById('dashboardMonthPicker').value) document.getElementById('dashboardMonthPicker').value = monthNow;
+      if (!document.getElementById('csvMonthPicker').value) document.getElementById('csvMonthPicker').value = monthNow;
+      if (!document.getElementById('wagePayDate').value) document.getElementById('wagePayDate').value = getTodayISO();
+      document.getElementById('otMultiplierInput').value = otMultiplier;
+      if (!salaryWeekStart) salaryWeekStart = getWeekStartISO(getTodayISO());
 
-      renderEmployeeDirectory();
-      renderDailyAttendanceTable();
-      calculateMonthlyMetrics();
+      refreshAttendanceUI();
     }
 
-    function syncAttendance() {
-      renderEmployeeDirectory();
-      renderDailyAttendanceTable();
-      calculateMonthlyMetrics();
+    function syncAttendance() { refreshAttendanceUI(); }
+
+    // ---------- employees ----------
+    function editEmployee(id) {
+      const emp = employeesList.find(e => e.id === id);
+      if (!emp) return;
+      document.getElementById('empIdInput').value = emp.id;
+      document.getElementById('empNameInput').value = emp.name;
+      document.getElementById('empRoleInput').value = emp.role || 'Employee';
+      document.getElementById('empStatusInput').value = emp.status || 'Active';
+      document.getElementById('empWageInput').value = emp.dailyWage || '';
+      document.getElementById('empWageInput').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById('empWageInput').focus();
     }
 
     async function handleSaveEmployee(e) {
@@ -4106,10 +4375,21 @@
       const name = document.getElementById('empNameInput').value.trim().toUpperCase();
       const role = document.getElementById('empRoleInput').value;
       const status = document.getElementById('empStatusInput').value;
+      const dailyWage = parseFloat(document.getElementById('empWageInput').value) || 0;
 
       if (!id || !name) return;
 
-      const empData = { id, name, role, fingerprint: id, status };
+      // DUPLICATE GUARD
+      const existingById = employeesList.find(em => em.id === id);
+      if (existingById && existingById.name.trim().toUpperCase() !== name) {
+        if (!confirm(`Employee ID #${id} already belongs to "${existingById.name}". Replace it with "${name}"?`)) return;
+      }
+      if (!existingById) {
+        const nameDupe = employeesList.find(em => em.name.trim().toUpperCase() === name);
+        if (nameDupe && !confirm(`"${name}" already exists as ID #${nameDupe.id}. Add this as a separate new employee anyway?`)) return;
+      }
+
+      const empData = { id, name, role, fingerprint: id, status, dailyWage };
 
       if (isCloudActive) {
         await db.collection("attendance_employees").doc(String(id)).set(empData);
@@ -4120,31 +4400,26 @@
       else employeesList.push(empData);
 
       localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
-      logAudit('EMPLOYEE_SAVE', `Employee #${id} (${name}) — ${role}`);
-      renderEmployeeDirectory();
+      logAudit('EMPLOYEE_SAVE', `Employee #${id} (${name}) — ${role} — Daily wage ₹${dailyWage.toFixed(2)}`);
+      refreshAttendanceUI();
       document.getElementById('empIdInput').value = '';
       document.getElementById('empNameInput').value = '';
+      document.getElementById('empWageInput').value = '';
     }
 
     async function deleteEmployee(id) {
       const adminPin = (profile && profile.adminPin) ? profile.adminPin : 'vsg69';
       const pass = prompt(`Admin PIN required to delete Employee #${id}:`);
       if (pass === null) return;
-      if (pass !== adminPin) {
-        alert("Incorrect PIN! Deletion cancelled.");
-        return;
-      }
+      if (pass !== adminPin) { alert("Incorrect PIN! Deletion cancelled."); return; }
 
       if (confirm(`Are you sure you want to permanently remove Employee #${id}?`)) {
-        if (isCloudActive) {
-          await db.collection("attendance_employees").doc(String(id)).delete();
-        }
+        if (isCloudActive) await db.collection("attendance_employees").doc(String(id)).delete();
         const emp = employeesList.find(e => e.id === id);
         employeesList = employeesList.filter(e => e.id !== id);
         localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
         if (emp) logAudit('EMPLOYEE_DELETE', `Employee #${id} (${emp.name}) removed`);
-        renderEmployeeDirectory();
-        calculateMonthlyMetrics();
+        refreshAttendanceUI();
       }
     }
 
@@ -4152,23 +4427,15 @@
       const emp = employeesList.find(e => e.id === id);
       if (!emp) return;
       emp.status = (emp.status === 'Active') ? 'Inactive' : 'Active';
-
-      if (isCloudActive) {
-        await db.collection("attendance_employees").doc(String(id)).set(emp);
-      }
+      if (isCloudActive) await db.collection("attendance_employees").doc(String(id)).set(emp);
       localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
-      renderEmployeeDirectory();
-      calculateMonthlyMetrics();
+      refreshAttendanceUI();
     }
 
     async function triggerHardwareEnroll() {
       const id = parseInt(document.getElementById('empIdInput').value);
       const name = document.getElementById('empNameInput').value.trim().toUpperCase();
-
-      if (!id || !name) {
-        alert("Please enter both ID and Name to enroll fingerprint.");
-        return;
-      }
+      if (!id || !name) { alert("Please enter both ID and Name to enroll fingerprint."); return; }
 
       if (attendanceEnrollUnsubscribe) { attendanceEnrollUnsubscribe(); attendanceEnrollUnsubscribe = null; }
       if (attendanceEnrollTimeoutHandle) { clearTimeout(attendanceEnrollTimeoutHandle); attendanceEnrollTimeoutHandle = null; }
@@ -4176,11 +4443,11 @@
       const badge = document.getElementById('enrollmentStatusBadge');
       badge.classList.remove('hidden');
       badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 animate-pulse";
-      badge.textContent = `Place finger on sensor for ID #${id} (${name})...`;
+      badge.textContent = `Place finger on the machine for ID #${id} (${name})...`;
 
       if (!isCloudActive) {
         badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800";
-        badge.textContent = "Cloud offline — cannot reach enrollment terminal.";
+        badge.textContent = "Cloud offline — cannot reach the fingerprint machine.";
         setTimeout(() => badge.classList.add('hidden'), 5000);
         return;
       }
@@ -4193,7 +4460,7 @@
           if (data.id === id) {
             if (data.status === "SUCCESS") {
               badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800";
-              badge.textContent = `Fingerprint for ID #${id} Enrolled Successfully!`;
+              badge.textContent = `Fingerprint for ID #${id} enrolled successfully!`;
             } else {
               badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800";
               badge.textContent = `Enrollment failed or timed out.`;
@@ -4205,10 +4472,9 @@
         }
       });
 
-      // Safety timeout: stop listening after 30s so a silent terminal never leaves this hanging
       attendanceEnrollTimeoutHandle = setTimeout(() => {
         badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800";
-        badge.textContent = "No response from terminal (timed out after 30s).";
+        badge.textContent = "No response from the machine (timed out after 30s).";
         setTimeout(() => badge.classList.add('hidden'), 5000);
         if (attendanceEnrollUnsubscribe) { attendanceEnrollUnsubscribe(); attendanceEnrollUnsubscribe = null; }
       }, 30000);
@@ -4223,6 +4489,11 @@
         const isAdmin = emp.role === 'Admin';
         const isActive = emp.status === 'Active';
         const fpSlot = emp.fingerprint || emp.id;
+        const wage = emp.dailyWage || 0;
+        const wageCell = wage > 0
+          ? `₹${wage.toFixed(0)}`
+          : `<span class="text-amber-700 font-bold">Not set</span>`;
+        const hourlyCell = wage > 0 ? `₹${(wage / 8).toFixed(2)}/hr` : '-';
 
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-50 transition border-b';
@@ -4231,14 +4502,17 @@
           <td class="py-3 px-4 font-bold text-slate-900 cursor-pointer" onclick="openAttendanceProfileModal(${emp.id})">
             ${emp.name} <span class="text-[10px] text-blue-600 font-semibold underline ml-1">Profile ↗</span>
           </td>
-          <td class="py-3 px-4 cursor-pointer" onclick="openAttendanceProfileModal(${emp.id})">
+          <td class="py-3 px-4">
             <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black ${isAdmin ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'}">${emp.role}</span>
           </td>
-          <td class="py-3 px-4 text-center font-mono font-bold text-slate-700 cursor-pointer" onclick="openAttendanceProfileModal(${emp.id})">${fpSlot}</td>
-          <td class="py-3 px-4 text-center cursor-pointer" onclick="openAttendanceProfileModal(${emp.id})">
+          <td class="py-3 px-4 text-center font-mono font-bold text-slate-700">${fpSlot}</td>
+          <td class="py-3 px-4 text-center font-mono font-bold text-emerald-700">${wageCell}</td>
+          <td class="py-3 px-4 text-center font-mono text-slate-600">${hourlyCell}</td>
+          <td class="py-3 px-4 text-center">
             <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black ${isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">${emp.status}</span>
           </td>
-          <td class="py-3 px-4 text-center space-x-3">
+          <td class="py-3 px-4 text-center space-x-3 whitespace-nowrap">
+            <button onclick="editEmployee(${emp.id})" class="text-xs font-bold text-blue-600 hover:text-blue-800 underline">Edit</button>
             <button onclick="toggleEmployeeStatus(${emp.id})" class="text-xs font-bold text-slate-600 hover:text-slate-900 underline">${isActive ? 'Deactivate' : 'Activate'}</button>
             <button onclick="deleteEmployee(${emp.id})" class="text-xs font-bold text-rose-600 hover:text-rose-800 underline">Delete</button>
           </td>
@@ -4247,16 +4521,16 @@
       });
     }
 
+    // ---------- time + pay calculation ----------
     function parseTimeToSeconds(timeStr) {
       if (!timeStr) return null;
-      const clean = timeStr.trim();
+      const clean = String(timeStr).trim();
       const parts = clean.split(' ');
       const timeParts = parts[0].split(':');
       let hours = parseInt(timeParts[0], 10);
       let mins = parseInt(timeParts[1], 10);
       let secs = timeParts[2] ? parseInt(timeParts[2], 10) : 0;
       if (isNaN(hours) || isNaN(mins)) return null;
-
       if (parts[1]) {
         const meridiem = parts[1].toUpperCase();
         if (meridiem === 'PM' && hours < 12) hours += 12;
@@ -4276,16 +4550,24 @@
     }
 
     function getGroupedDailyAttendance() {
-      const dailyMap = {};
+      // DUPLICATE GUARD: the fingerprint machine can write the same scan twice (retry on a weak
+      // connection). Identical (employee + date + event + time) entries are counted only once.
+      const seenKeys = new Set();
+      const dedupedEvents = [];
       attendanceEvents.forEach(evt => {
-        const rawDate = evt.date;
-        const key = `${rawDate}_${evt.id}`;
+        const dupKey = `${evt.id}_${normalizeDateISO(evt.date)}_${(evt.event || '').toUpperCase()}_${evt.time}`;
+        if (seenKeys.has(dupKey)) return;
+        seenKeys.add(dupKey);
+        dedupedEvents.push(evt);
+      });
 
+      const dailyMap = {};
+      dedupedEvents.forEach(evt => {
+        const isoDate = normalizeDateISO(evt.date);
+        const key = `${isoDate}_${evt.id}`;
         if (!dailyMap[key]) {
-          dailyMap[key] = { date: rawDate, id: evt.id, name: evt.name, checkIn: null, lunchOut: null, lunchIn: null, checkOut: null, eventDocIds: [] };
+          dailyMap[key] = { date: isoDate, id: evt.id, name: evt.name, checkIn: null, lunchOut: null, lunchIn: null, checkOut: null };
         }
-        if (evt._docId) dailyMap[key].eventDocIds.push(evt._docId);
-
         const ev = (evt.event || '').toUpperCase();
         if (ev.includes('CHECK IN') && !dailyMap[key].checkIn) dailyMap[key].checkIn = evt.time;
         else if (ev.includes('LUNCH OUT')) dailyMap[key].lunchOut = evt.time;
@@ -4295,33 +4577,182 @@
       return Object.values(dailyMap);
     }
 
-    // BUGFIX: filter grouped records to a given YYYY-MM month
     function filterRecordsByMonth(records, monthVal) {
       if (!monthVal) return records;
       return records.filter(r => (r.date || '').slice(0, 7) === monthVal);
     }
 
+    // One place that decides hours + pay for a single day.
+    //  - Mon–Sat = normal pay (daily wage ÷ 8 per hour)
+    //  - Sunday  = OT, paid at (hourly rate × OT multiplier)
+    function computeDayStats(rec, emp) {
+      const inSec = parseTimeToSeconds(rec.checkIn);
+      const lOutSec = parseTimeToSeconds(rec.lunchOut);
+      const lInSec = parseTimeToSeconds(rec.lunchIn);
+      const outSec = parseTimeToSeconds(rec.checkOut);
+      const lunchSecs = (lOutSec != null && lInSec != null) ? Math.abs(lInSec - lOutSec) : 0;
+      const isOT = isSundayISO(rec.date);
+      const today = getTodayISO();
+
+      let workSecs = 0, assumed = false, pending = false, missingOut = false;
+      if (inSec != null && outSec != null) {
+        workSecs = Math.max(0, Math.abs(outSec - inSec) - lunchSecs);
+      } else if (inSec != null) {
+        if (rec.date >= today) { pending = true; }
+        else if (!isOT) { workSecs = 8 * 3600; assumed = true; }
+        else { missingOut = true; }
+      }
+
+      const hourly = ((emp && emp.dailyWage) || 0) / 8;
+      const rate = isOT ? hourly * otMultiplier : hourly;
+      const amount = (workSecs / 3600) * rate;
+      return { workSecs, lunchSecs, amount, isOT, assumed, pending, missingOut, rate };
+    }
+
+    function getEmpById(id) { return employeesList.find(e => Number(e.id) === Number(id)); }
+
+    function getEmployeeAllTimeStats(empId) {
+      const emp = getEmpById(empId);
+      let presentDays = 0, normalSecs = 0, otSecs = 0, earned = 0;
+      getGroupedDailyAttendance().filter(r => Number(r.id) === Number(empId)).forEach(rec => {
+        if (!rec.checkIn) return;
+        const st = computeDayStats(rec, emp);
+        presentDays++;
+        if (st.isOT) otSecs += st.workSecs; else normalSecs += st.workSecs;
+        earned += st.amount;
+      });
+      return { presentDays, normalSecs, otSecs, earned };
+    }
+
+    // ---------- today at a glance ----------
+    function renderTodaySnapshot() {
+      const today = getTodayISO();
+      const recMap = {};
+      getGroupedDailyAttendance().forEach(r => { if (r.date === today) recMap[r.id] = r; });
+      let working = 0, lunch = 0, done = 0, notIn = 0;
+      employeesList.filter(e => e.status === 'Active').forEach(emp => {
+        const rec = recMap[emp.id];
+        if (!rec || !rec.checkIn) notIn++;
+        else if (rec.checkOut) done++;
+        else if (rec.lunchOut && !rec.lunchIn) lunch++;
+        else working++;
+      });
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('todayWorking', working); set('todayLunch', lunch); set('todayDone', done); set('todayNotIn', notIn);
+    }
+
+    // ---------- weekly salary sheet (Mon–Sat + Sunday OT) ----------
+    function shiftSalaryWeek(delta) {
+      if (!salaryWeekStart) salaryWeekStart = getWeekStartISO(getTodayISO());
+      salaryWeekStart = addDaysISO(salaryWeekStart, delta * 7);
+      renderWeeklySalarySheet();
+    }
+    function goToThisWeek() {
+      salaryWeekStart = getWeekStartISO(getTodayISO());
+      renderWeeklySalarySheet();
+    }
+
+    function renderWeeklySalarySheet() {
+      const tbody = document.getElementById('weeklySalaryBody');
+      if (!tbody) return;
+      if (!salaryWeekStart) salaryWeekStart = getWeekStartISO(getTodayISO());
+      const weekEnd = addDaysISO(salaryWeekStart, 6);
+      document.getElementById('weekRangeLabel').textContent = `${formatDisplayDate(salaryWeekStart)}  →  ${formatDisplayDate(weekEnd)}`;
+
+      const today = getTodayISO();
+      const recMap = {};
+      getGroupedDailyAttendance().forEach(r => { recMap[`${r.date}_${r.id}`] = r; });
+
+      tbody.innerHTML = '';
+      let grandAmount = 0, grandPaid = 0, grandDue = 0, rowsShown = 0;
+
+      [...employeesList].sort((a, b) => a.id - b.id).forEach(emp => {
+        let weekAmount = 0, anyWork = false, cells = '';
+
+        for (let i = 0; i < 7; i++) {
+          const iso = addDaysISO(salaryWeekStart, i);
+          const isSunCol = (i === 6);
+          const tdBase = isSunCol ? 'py-2.5 px-2 text-center bg-amber-50/60' : 'py-2.5 px-2 text-center';
+          const rec = recMap[`${iso}_${emp.id}`];
+
+          if (rec && rec.checkIn) {
+            anyWork = true;
+            const st = computeDayStats(rec, emp);
+            weekAmount += st.amount;
+            let hoursText;
+            if (st.pending) hoursText = '<span class="text-blue-600 font-bold">working…</span>';
+            else if (st.missingOut) hoursText = '<span class="text-rose-600 font-bold" title="No check-out recorded">no out</span>';
+            else hoursText = `${formatSecondsToDisplay(st.workSecs)}${st.assumed ? '<span class="text-amber-600 font-black" title="No check-out recorded: 8 hours assumed"> *</span>' : ''}`;
+            cells += `<td class="${tdBase}"><div class="font-mono text-slate-700">${hoursText}</div><div class="font-mono font-bold ${isSunCol ? 'text-amber-700' : 'text-emerald-700'}">₹${st.amount.toFixed(0)}</div></td>`;
+          } else {
+            const isFutureOrToday = iso >= today;
+            cells += `<td class="${tdBase} ${isFutureOrToday ? 'text-slate-200' : 'text-slate-300'}">–</td>`;
+          }
+        }
+
+        if (emp.status !== 'Active' && !anyWork) return;
+        rowsShown++;
+
+        const paid = labourPayments
+          .filter(p => Number(p.empId) === Number(emp.id) && p.date >= salaryWeekStart && p.date <= weekEnd)
+          .reduce((s, p) => s + (p.amount || 0), 0);
+        const due = weekAmount - paid;
+        grandAmount += weekAmount; grandPaid += paid; grandDue += Math.max(0, due);
+
+        let actionCell;
+        if (weekAmount <= 0) actionCell = '<span class="text-slate-300">–</span>';
+        else if (due > 0.5) actionCell = `<button onclick="prefillWagePayment(${emp.id}, ${due.toFixed(2)})" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition whitespace-nowrap">Pay ₹${due.toFixed(0)}</button>`;
+        else actionCell = '<span class="text-emerald-700 font-black">✓ Paid</span>';
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b';
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 font-bold text-slate-900 whitespace-nowrap">${emp.name}<div class="text-[10px] text-slate-400 font-mono font-normal">₹${(emp.dailyWage || 0).toFixed(0)}/day</div></td>
+          ${cells}
+          <td class="py-2.5 px-3 text-right font-mono font-black text-emerald-700">₹${weekAmount.toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-right font-mono font-bold text-blue-700">₹${paid.toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-right font-mono font-black ${due > 0.5 ? 'text-rose-700' : 'text-slate-400'}">₹${Math.max(0, due).toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-center">${actionCell}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      if (rowsShown === 0) {
+        tbody.innerHTML = `<tr><td colspan="12" class="py-8 text-center text-slate-400 font-medium">No employees or attendance for this week.</td></tr>`;
+      }
+      document.getElementById('weekTotalAmount').textContent = `₹${grandAmount.toFixed(2)}`;
+      document.getElementById('weekTotalPaid').textContent = `₹${grandPaid.toFixed(2)}`;
+      document.getElementById('weekTotalDue').textContent = `₹${grandDue.toFixed(2)}`;
+    }
+
+    function prefillWagePayment(empId, amount) {
+      const weekEnd = addDaysISO(salaryWeekStart, 6);
+      document.getElementById('wagePayEmpSelect').value = String(empId);
+      document.getElementById('wagePayAmount').value = Math.round(amount * 100) / 100;
+      document.getElementById('wagePayDate').value = getTodayISO();
+      document.getElementById('wagePayRemarks').value = `Weekly salary ${formatDisplayDate(salaryWeekStart)} to ${formatDisplayDate(weekEnd)}`;
+      document.getElementById('wagePayForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.getElementById('wagePayAmount').focus();
+    }
+
+    // ---------- daily log ----------
     async function deleteDailyLog(dateStr, empId) {
       const adminPin = (profile && profile.adminPin) ? profile.adminPin : 'vsg69';
       const pass = prompt(`Admin PIN required to delete log for Employee #${empId} on ${dateStr}:`);
       if (pass === null) return;
-      if (pass !== adminPin) {
-        alert("Incorrect PIN! Deletion cancelled.");
-        return;
-      }
+      if (pass !== adminPin) { alert("Incorrect PIN! Deletion cancelled."); return; }
 
       if (confirm(`Confirm permanent deletion of attendance log for Employee #${empId} on ${dateStr}?`)) {
+        const matches = (e) => normalizeDateISO(e.date) === dateStr && Number(e.id) === Number(empId);
         if (isCloudActive) {
-          const toDelete = attendanceEvents.filter(e => e.date === dateStr && e.id === empId);
-          for (const ev of toDelete) {
+          for (const ev of attendanceEvents.filter(matches)) {
             if (ev._docId) await db.collection("attendance_events").doc(ev._docId).delete();
           }
         }
-        attendanceEvents = attendanceEvents.filter(e => !(e.date === dateStr && e.id === empId));
+        attendanceEvents = attendanceEvents.filter(e => !matches(e));
         localStorage.setItem('vsg_roster_events', JSON.stringify(attendanceEvents));
         logAudit('ATTENDANCE_DELETE', `Attendance log for employee #${empId} on ${dateStr} deleted`);
-        renderDailyAttendanceTable();
-        calculateMonthlyMetrics();
+        refreshAttendanceUI();
       }
     }
 
@@ -4331,49 +4762,38 @@
       tbody.innerHTML = '';
 
       const filterDate = document.getElementById('attendanceDateFilter').value;
-      const records = getGroupedDailyAttendance();
-
-      // BUGFIX: exact-match date filter instead of fragile .includes() substring matching
-      const filtered = records.filter(r => !filterDate || r.date === filterDate);
-      filtered.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+      const filtered = getGroupedDailyAttendance().filter(r => !filterDate || r.date === filterDate);
+      filtered.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (a.id - b.id));
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-slate-400 font-medium">No biometric records logged. Present employees at the scanner.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" class="py-8 text-center text-slate-400 font-medium">No attendance recorded yet. It appears here as soon as someone scans their finger.</td></tr>`;
         return;
       }
 
       filtered.forEach(rec => {
-        const inSec = parseTimeToSeconds(rec.checkIn);
-        const lOutSec = parseTimeToSeconds(rec.lunchOut);
-        const lInSec = parseTimeToSeconds(rec.lunchIn);
-        const outSec = parseTimeToSeconds(rec.checkOut);
+        const st = computeDayStats(rec, getEmpById(rec.id));
 
-        let lunchSecs = null;
-        if (lOutSec != null && lInSec != null) lunchSecs = Math.abs(lInSec - lOutSec);
+        let statusBadge;
+        if (rec.checkOut) statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800">DONE</span>`;
+        else if (rec.lunchOut && !rec.lunchIn) statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">ON LUNCH</span>`;
+        else if (st.pending) statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">WORKING</span>`;
+        else statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800">NO CHECK-OUT</span>`;
+        if (st.isOT) statusBadge += ` <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">OT</span>`;
 
-        let workSecs = null;
-        if (inSec != null && outSec != null) {
-          let grossSecs = Math.abs(outSec - inSec);
-          workSecs = Math.max(0, grossSecs - (lunchSecs || 0));
-        }
-
-        let statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">PRESENT</span>`;
-        if (rec.lunchOut && !rec.lunchIn) {
-          statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800">ON LUNCH</span>`;
-        }
-
+        const dayName = DAY_NAMES[isoToLocalDate(rec.date).getDay()];
         const tr = document.createElement('tr');
         tr.className = 'hover:bg-slate-50 transition border-b';
         tr.innerHTML = `
-          <td class="py-3 px-4 font-mono font-bold text-slate-800">${rec.date}</td>
+          <td class="py-3 px-4 font-mono font-bold text-slate-800 whitespace-nowrap">${formatDisplayDate(rec.date)} <span class="text-slate-400 font-sans font-semibold text-[10px]">${dayName}</span></td>
           <td class="py-3 px-4 font-bold text-slate-900">${rec.name}</td>
           <td class="py-3 px-3 text-center font-mono font-bold text-emerald-700">${rec.checkIn || '-'}</td>
           <td class="py-3 px-3 text-center font-mono font-bold text-amber-700">${rec.lunchOut || '-'}</td>
           <td class="py-3 px-3 text-center font-mono font-bold text-blue-700">${rec.lunchIn || '-'}</td>
           <td class="py-3 px-3 text-center font-mono font-bold text-rose-700">${rec.checkOut || '-'}</td>
-          <td class="py-3 px-3 text-center font-mono text-slate-700 font-bold">${formatSecondsToDisplay(lunchSecs)}</td>
-          <td class="py-3 px-3 text-center font-mono font-black text-indigo-700 text-sm">${formatSecondsToDisplay(workSecs)}</td>
-          <td class="py-3 px-3 text-center">${statusBadge}</td>
+          <td class="py-3 px-3 text-center font-mono text-slate-700 font-bold">${formatSecondsToDisplay(st.lunchSecs)}</td>
+          <td class="py-3 px-3 text-center font-mono font-black text-indigo-700 text-sm">${st.pending ? '…' : formatSecondsToDisplay(st.workSecs)}${st.assumed ? '<span class="text-amber-600" title="No check-out: 8 hours assumed"> *</span>' : ''}</td>
+          <td class="py-3 px-3 text-right font-mono font-black text-emerald-700">₹${st.amount.toFixed(2)}</td>
+          <td class="py-3 px-3 text-center whitespace-nowrap">${statusBadge}</td>
           <td class="py-3 px-3 text-center">
             <button onclick="deleteDailyLog('${rec.date}', ${rec.id})" class="text-xs font-bold text-rose-600 hover:text-rose-800 underline">Delete</button>
           </td>
@@ -4387,119 +4807,314 @@
       renderDailyAttendanceTable();
     }
 
+    // ---------- monthly summary ----------
     function calculateMonthlyMetrics() {
-      const monthVal = document.getElementById('dashboardMonthPicker').value || "2026-10";
-      // BUGFIX: records were never actually filtered to the selected month before — KPIs always showed all-time totals
+      const monthVal = document.getElementById('dashboardMonthPicker').value || getTodayISO().slice(0, 7);
       const records = filterRecordsByMonth(getGroupedDailyAttendance(), monthVal);
 
-      let totalPresentDays = 0;
-      let totalWorkSeconds = 0;
-      let totalLunchSeconds = 0;
-      const loggedDatesSet = new Set();
+      let presentShifts = 0, workSeconds = 0, lunchSeconds = 0, wages = 0, otWages = 0;
+      let normalPresent = 0;
+      const normalDays = new Set();
 
       records.forEach(rec => {
-        if (rec.checkIn) {
-          totalPresentDays++;
-          loggedDatesSet.add(rec.date);
-
-          const inSec = parseTimeToSeconds(rec.checkIn);
-          const lOutSec = parseTimeToSeconds(rec.lunchOut);
-          const lInSec = parseTimeToSeconds(rec.lunchIn);
-          const outSec = parseTimeToSeconds(rec.checkOut);
-
-          let lunch = (lOutSec != null && lInSec != null) ? Math.abs(lInSec - lOutSec) : 0;
-          totalLunchSeconds += lunch;
-
-          let work = (inSec != null && outSec != null) ? Math.max(0, Math.abs(outSec - inSec) - lunch) : (8 * 3600);
-          totalWorkSeconds += work;
-        }
+        if (!rec.checkIn) return;
+        const st = computeDayStats(rec, getEmpById(rec.id));
+        presentShifts++;
+        workSeconds += st.workSecs;
+        lunchSeconds += st.lunchSecs;
+        wages += st.amount;
+        if (st.isOT) otWages += st.amount;
+        else { normalPresent++; normalDays.add(rec.date); }
       });
 
-      const activeEmployeesCount = employeesList.filter(e => e.status === 'Active').length || employeesList.length;
-      const totalFactoryWorkingDaysLogged = loggedDatesSet.size;
-      const expectedTotalShifts = activeEmployeesCount * totalFactoryWorkingDaysLogged;
-      const absentDays = Math.max(0, expectedTotalShifts - totalPresentDays);
-      const avgSecondsPerShift = totalPresentDays > 0 ? Math.round(totalWorkSeconds / totalPresentDays) : 0;
+      // Sundays are OT, so only Mon–Sat count towards "missed" shifts
+      const activeCount = employeesList.filter(e => e.status === 'Active').length || employeesList.length;
+      const missed = Math.max(0, activeCount * normalDays.size - normalPresent);
+      const avg = presentShifts > 0 ? Math.round(workSeconds / presentShifts) : 0;
 
-      document.getElementById('kpiPresentDays').textContent = totalPresentDays;
-      document.getElementById('kpiAbsentDays').textContent = absentDays;
-      document.getElementById('kpiTotalWork').textContent = formatSecondsToDisplay(totalWorkSeconds);
-      document.getElementById('kpiAvgWork').textContent = formatSecondsToDisplay(avgSecondsPerShift);
-      document.getElementById('kpiTotalLunch').textContent = formatSecondsToDisplay(totalLunchSeconds);
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('kpiPresentDays', presentShifts);
+      set('kpiAbsentDays', missed);
+      set('kpiTotalWork', formatSecondsToDisplay(workSeconds) === '-' ? '0h 0m' : formatSecondsToDisplay(workSeconds));
+      set('kpiAvgWork', formatSecondsToDisplay(avg) === '-' ? '0h 0m' : formatSecondsToDisplay(avg));
+      set('kpiTotalLunch', formatSecondsToDisplay(lunchSeconds) === '-' ? '0h 0m' : formatSecondsToDisplay(lunchSeconds));
+      set('kpiMonthWages', `₹${wages.toFixed(0)}`);
+      set('kpiMonthOT', `incl. OT ₹${otWages.toFixed(0)}`);
     }
 
     function openAttendanceProfileModal(empId) {
-      const emp = employeesList.find(e => e.id === empId);
+      const emp = getEmpById(empId);
       if (!emp) return;
 
       document.getElementById('modalEmpName').textContent = emp.name;
-      document.getElementById('modalEmpDetails').textContent = `Employee ID: ${emp.id} | Role: ${emp.role} | Fingerprint Slot: ${emp.fingerprint || emp.id}`;
+      document.getElementById('modalEmpDetails').textContent = `Employee ID: ${emp.id} | Role: ${emp.role} | Daily Wage: ₹${(emp.dailyWage || 0).toFixed(0)} | Fingerprint Slot: ${emp.fingerprint || emp.id}`;
 
-      const monthPickerVal = document.getElementById('dashboardMonthPicker').value || "2026-10";
+      const monthPickerVal = document.getElementById('dashboardMonthPicker').value || getTodayISO().slice(0, 7);
       const parts = monthPickerVal.split('-');
       const monthNames = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
-      const currentMonthName = monthNames[parseInt(parts[1], 10) - 1] || "OCTOBER";
-      document.getElementById('modalMonthTitle').textContent = `${currentMonthName} ${parts[0]}`;
+      document.getElementById('modalMonthTitle').textContent = `${monthNames[parseInt(parts[1], 10) - 1] || ''} ${parts[0]}`;
 
-      // BUGFIX: modal previously showed ALL-time records regardless of the selected month,
-      // which disagreed with the dashboard KPIs above it. Now scoped to the same month.
-      const allRecordsAllTime = getGroupedDailyAttendance().filter(r => r.id === empId);
-      const allRecords = filterRecordsByMonth(allRecordsAllTime, monthPickerVal);
+      const monthAll = filterRecordsByMonth(getGroupedDailyAttendance(), monthPickerVal);
+      const myRecords = monthAll.filter(r => Number(r.id) === Number(empId) && r.checkIn);
 
-      let presentDays = 0;
-      let totalWorkSecs = 0;
-      let totalLunchSecs = 0;
-
+      let presentShifts = 0, normalPresent = 0, totalWorkSecs = 0, totalLunchSecs = 0;
       const timelineBody = document.getElementById('modalTimelineBody');
       timelineBody.innerHTML = '';
 
-      if (allRecords.length === 0) {
+      if (myRecords.length === 0) {
         timelineBody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400 font-medium">No recorded shifts for ${emp.name} this month.</td></tr>`;
       } else {
-        allRecords.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-        allRecords.forEach(rec => {
-          presentDays++;
-          const inSec = parseTimeToSeconds(rec.checkIn);
-          const lOutSec = parseTimeToSeconds(rec.lunchOut);
-          const lInSec = parseTimeToSeconds(rec.lunchIn);
-          const outSec = parseTimeToSeconds(rec.checkOut);
-
-          let lunch = (lOutSec != null && lInSec != null) ? Math.abs(lInSec - lOutSec) : 0;
-          totalLunchSecs += lunch;
-
-          let work = (inSec != null && outSec != null) ? Math.max(0, Math.abs(outSec - inSec) - lunch) : 0;
-          totalWorkSecs += work;
+        myRecords.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        myRecords.forEach(rec => {
+          const st = computeDayStats(rec, emp);
+          presentShifts++;
+          if (!st.isOT) normalPresent++;
+          totalWorkSecs += st.workSecs;
+          totalLunchSecs += st.lunchSecs;
 
           const tr = document.createElement('tr');
           tr.className = 'border-b hover:bg-slate-50';
           tr.innerHTML = `
-            <td class="py-2.5 px-3 font-mono font-bold">${rec.date}</td>
+            <td class="py-2.5 px-3 font-mono font-bold">${formatDisplayDate(rec.date)}</td>
             <td class="py-2.5 px-2 text-center font-mono text-emerald-700">${rec.checkIn || '-'}</td>
             <td class="py-2.5 px-2 text-center font-mono text-amber-700">${rec.lunchOut || '-'}</td>
             <td class="py-2.5 px-2 text-center font-mono text-blue-700">${rec.lunchIn || '-'}</td>
             <td class="py-2.5 px-2 text-center font-mono text-rose-700">${rec.checkOut || '-'}</td>
-            <td class="py-2.5 px-2 text-center font-mono font-bold text-indigo-700">${formatSecondsToDisplay(work)}</td>
-            <td class="py-2.5 px-2 text-center"><span class="px-2 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800">PRESENT</span></td>
+            <td class="py-2.5 px-2 text-center font-mono font-bold text-indigo-700">${st.pending ? '…' : formatSecondsToDisplay(st.workSecs)}</td>
+            <td class="py-2.5 px-2 text-center"><span class="px-2 py-0.5 rounded text-[9px] font-bold ${st.isOT ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">${st.isOT ? 'OT (SUN)' : 'PRESENT'}</span></td>
           `;
           timelineBody.appendChild(tr);
         });
       }
 
-      const uniqueLoggedDates = new Set(filterRecordsByMonth(getGroupedDailyAttendance(), monthPickerVal).map(r => r.date)).size;
-      const absentDays = Math.max(0, uniqueLoggedDates - presentDays);
-      const avgSecs = presentDays > 0 ? Math.round(totalWorkSecs / presentDays) : 0;
+      const normalDays = new Set(monthAll.filter(r => r.checkIn && !isSundayISO(r.date)).map(r => r.date)).size;
+      const absentDays = Math.max(0, normalDays - normalPresent);
+      const avgSecs = presentShifts > 0 ? Math.round(totalWorkSecs / presentShifts) : 0;
 
-      document.getElementById('modalPresentDays').textContent = `${presentDays} days`;
+      document.getElementById('modalPresentDays').textContent = `${presentShifts} days`;
       document.getElementById('modalAbsentDays').textContent = `${absentDays} days`;
-      document.getElementById('modalWorkHours').textContent = formatSecondsToDisplay(totalWorkSecs);
-      document.getElementById('modalAvgDay').textContent = formatSecondsToDisplay(avgSecs);
-      document.getElementById('modalLunchTime').textContent = formatSecondsToDisplay(totalLunchSecs);
+      document.getElementById('modalWorkHours').textContent = formatSecondsToDisplay(totalWorkSecs) === '-' ? '0h 0m' : formatSecondsToDisplay(totalWorkSecs);
+      document.getElementById('modalAvgDay').textContent = formatSecondsToDisplay(avgSecs) === '-' ? '0h 0m' : formatSecondsToDisplay(avgSecs);
+      document.getElementById('modalLunchTime').textContent = formatSecondsToDisplay(totalLunchSecs) === '-' ? '0h 0m' : formatSecondsToDisplay(totalLunchSecs);
 
       document.getElementById('attendanceProfileModal').classList.remove('hidden');
     }
 
     function closeProfileModal() {
       document.getElementById('attendanceProfileModal').classList.add('hidden');
+    }
+
+    // ---------- wage payments ----------
+    function populateWagePayEmpSelect() {
+      const sel = document.getElementById('wagePayEmpSelect');
+      if (!sel) return;
+      const current = sel.value;
+      sel.innerHTML = [...employeesList].sort((a, b) => a.id - b.id)
+        .map(emp => `<option value="${emp.id}">#${emp.id} — ${emp.name}</option>`).join('');
+      if ([...sel.options].some(o => o.value === current)) sel.value = current;
+    }
+
+    async function saveOtMultiplier() {
+      const v = parseFloat(document.getElementById('otMultiplierInput').value);
+      if (isNaN(v) || v < 0) { alert('Please enter a number such as 1, 1.5 or 2.'); return; }
+      otMultiplier = v;
+      localStorage.setItem('vsg_ot_multiplier', String(v));
+      if (isCloudActive) {
+        try { await db.collection("settings").doc("attendanceConfig").set({ otMultiplier: v }, { merge: true }); }
+        catch (err) { console.warn("OT rate cloud sync failed:", err); }
+      }
+      logAudit('OT_RATE_SET', `Sunday OT pay set to ${v}× the normal hourly rate`);
+      refreshAttendanceUI();
+    }
+
+    async function handleRecordLabourPayment(e) {
+      e.preventDefault();
+      const empId = parseInt(document.getElementById('wagePayEmpSelect').value);
+      const date = document.getElementById('wagePayDate').value;
+      const amount = parseFloat(document.getElementById('wagePayAmount').value) || 0;
+      const remarks = document.getElementById('wagePayRemarks').value.trim();
+
+      const emp = getEmpById(empId);
+      if (!emp || !date || amount <= 0) { alert('Please select an employee and enter a valid date and amount.'); return; }
+
+      // DUPLICATE GUARD
+      const dupe = labourPayments.find(p => Number(p.empId) === empId && p.date === date && Math.abs((p.amount || 0) - amount) < 0.005);
+      if (dupe && !confirm(`A payment of ₹${amount.toFixed(2)} to ${emp.name} on ${formatDisplayDate(date)} is already recorded. Save it again?`)) return;
+
+      const payment = { id: Date.now() + Math.floor(Math.random() * 1000), empId, empName: emp.name, date, amount, remarks };
+      labourPayments.push(payment);
+      localStorage.setItem('vsg_labour_payments', JSON.stringify(labourPayments));
+
+      if (isCloudActive) {
+        try { await db.collection("labour_payments").doc(String(payment.id)).set(payment); }
+        catch (err) { console.warn("Labour payment cloud sync failed:", err); }
+      }
+
+      logAudit('WAGE_PAYMENT', `₹${amount.toFixed(2)} paid to ${emp.name} (#${empId}) on ${formatDisplayDate(date)}`);
+      document.getElementById('wagePayAmount').value = '';
+      document.getElementById('wagePayRemarks').value = '';
+      renderWeeklySalarySheet();
+      renderLabourWageTable();
+      renderLabourPaymentsList();
+    }
+
+    async function deleteLabourPayment(id) {
+      const pay = labourPayments.find(p => p.id === id);
+      if (!pay) return;
+      if (!confirm(`Delete the ₹${(pay.amount || 0).toFixed(2)} payment to ${pay.empName} on ${formatDisplayDate(pay.date)}?`)) return;
+      if (isCloudActive) {
+        try { await db.collection("labour_payments").doc(String(id)).delete(); }
+        catch (err) { console.warn("Labour payment delete sync failed:", err); }
+      }
+      labourPayments = labourPayments.filter(p => p.id !== id);
+      localStorage.setItem('vsg_labour_payments', JSON.stringify(labourPayments));
+      logAudit('WAGE_PAYMENT_DELETE', `₹${(pay.amount || 0).toFixed(2)} payment to ${pay.empName} on ${formatDisplayDate(pay.date)} deleted`);
+      renderWeeklySalarySheet();
+      renderLabourWageTable();
+      renderLabourPaymentsList();
+    }
+
+    function renderLabourWageTable() {
+      const tbody = document.getElementById('labourWageTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      if (employeesList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400 font-medium">No employees added yet.</td></tr>`;
+        return;
+      }
+      [...employeesList].sort((a, b) => a.id - b.id).forEach(emp => {
+        const s = getEmployeeAllTimeStats(emp.id);
+        const paid = labourPayments.filter(p => Number(p.empId) === Number(emp.id)).reduce((sum, p) => sum + (p.amount || 0), 0);
+        const balance = s.earned - paid;
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b';
+        tr.innerHTML = `
+          <td class="py-2.5 px-4 font-bold text-slate-900">${emp.name} <span class="text-slate-400 font-mono font-normal">#${emp.id}</span></td>
+          <td class="py-2.5 px-3 text-center font-mono font-bold text-slate-700">₹${(emp.dailyWage || 0).toFixed(0)}</td>
+          <td class="py-2.5 px-3 text-center font-mono text-slate-700">${s.presentDays}</td>
+          <td class="py-2.5 px-3 text-center font-mono text-slate-700">${(s.normalSecs / 3600).toFixed(1)}h</td>
+          <td class="py-2.5 px-3 text-center font-mono text-amber-700 font-bold">${(s.otSecs / 3600).toFixed(1)}h</td>
+          <td class="py-2.5 px-3 text-right font-mono font-bold text-emerald-700">₹${s.earned.toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-right font-mono font-bold text-blue-700">₹${paid.toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-right font-mono font-black ${balance > 0.5 ? 'text-rose-700' : 'text-slate-500'}">₹${balance.toFixed(2)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderLabourPaymentsList() {
+      const tbody = document.getElementById('labourPaymentsTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      const list = [...labourPayments].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.id - a.id)).slice(0, 15);
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-400 font-medium">No wage payments recorded yet.</td></tr>`;
+        return;
+      }
+      list.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b';
+        tr.innerHTML = `
+          <td class="py-2.5 px-4 font-mono font-bold text-slate-700">${formatDisplayDate(p.date)}</td>
+          <td class="py-2.5 px-4 font-bold text-slate-900">${p.empName || ''}</td>
+          <td class="py-2.5 px-4 text-slate-500">${p.remarks || '-'}</td>
+          <td class="py-2.5 px-4 text-right font-mono font-black text-blue-700">₹${(p.amount || 0).toFixed(2)}</td>
+          <td class="py-2.5 px-4 text-center"><button onclick="deleteLabourPayment(${p.id})" class="text-xs font-bold text-rose-600 hover:text-rose-800 underline">Delete</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // ---------- CSV download: name, attendance log week by week, week total amount ----------
+    function csvEscape(v) {
+      const s = (v == null) ? '' : String(v);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+
+    function downloadAttendanceCSV() {
+      const monthVal = document.getElementById('csvMonthPicker').value;
+      if (!monthVal) { alert('Please choose a month first.'); return; }
+
+      const [y, m] = monthVal.split('-').map(Number);
+      const firstISO = `${monthVal}-01`;
+      const lastISO = localDateToISO(new Date(y, m, 0));
+      const firstWeek = getWeekStartISO(firstISO);
+      const lastWeek = getWeekStartISO(lastISO);
+
+      const recMap = {};
+      getGroupedDailyAttendance().forEach(r => { recMap[`${r.date}_${r.id}`] = r; });
+      const emps = [...employeesList].sort((a, b) => a.id - b.id);
+
+      const rows = [];
+      rows.push(['VSG INDUSTRIES - ATTENDANCE & WAGES REPORT']);
+      rows.push([`Month: ${monthVal}`]);
+      rows.push([`Pay rule: Hourly rate = Daily Wage / 8. Mon-Sat = normal. Sunday = OT at ${otMultiplier}x the hourly rate.`]);
+      rows.push(['Weeks run Monday to Sunday and are shown in full, so a week that crosses a month end includes days from the next/previous month.']);
+      rows.push([]);
+      rows.push(['Week', 'Employee', 'Emp ID', 'Date', 'Day', 'Check In', 'Lunch Out', 'Lunch In', 'Check Out', 'Lunch (min)', 'Hours Worked', 'Type', 'Rate per Hour (Rs)', 'Amount (Rs)', 'Note']);
+
+      const summary = {};
+      let weekNo = 0;
+      for (let ws = firstWeek; ws <= lastWeek; ws = addDaysISO(ws, 7)) {
+        weekNo++;
+        const we = addDaysISO(ws, 6);
+        const weekLabel = `Week ${weekNo} (${formatDisplayDate(ws)} to ${formatDisplayDate(we)})`;
+        let weekAllAmount = 0, weekAllSecs = 0, weekHasData = false;
+
+        emps.forEach(emp => {
+          let empSecs = 0, empAmt = 0, any = false;
+          for (let i = 0; i < 7; i++) {
+            const iso = addDaysISO(ws, i);
+            const rec = recMap[`${iso}_${emp.id}`];
+            if (!rec || !rec.checkIn) continue;
+            any = true;
+            const st = computeDayStats(rec, emp);
+            empSecs += st.workSecs; empAmt += st.amount;
+            let note = '';
+            if (st.assumed) note = 'No check-out: 8 hours assumed';
+            else if (st.missingOut) note = 'No check-out on Sunday: counted as 0';
+            else if (st.pending) note = 'Still working';
+            const lunchMin = Math.round(st.lunchSecs / 60);
+            rows.push([weekLabel, emp.name, emp.id, formatDisplayDate(iso), DAY_NAMES[isoToLocalDate(iso).getDay()],
+              rec.checkIn || '', rec.lunchOut || '', rec.lunchIn || '', rec.checkOut || '', lunchMin || '',
+              (st.workSecs / 3600).toFixed(2), st.isOT ? 'OT (Sunday)' : 'Normal', st.rate.toFixed(2), st.amount.toFixed(2), note]);
+          }
+          if (any) {
+            weekHasData = true;
+            weekAllAmount += empAmt; weekAllSecs += empSecs;
+            rows.push([weekLabel, emp.name, emp.id, 'WEEK TOTAL', '', '', '', '', '', '', (empSecs / 3600).toFixed(2), '', '', empAmt.toFixed(2), 'Amount to pay for this week']);
+            if (!summary[emp.id]) summary[emp.id] = { name: emp.name, secs: 0, amt: 0 };
+            summary[emp.id].secs += empSecs; summary[emp.id].amt += empAmt;
+          }
+        });
+
+        if (weekHasData) {
+          rows.push([weekLabel, 'ALL EMPLOYEES', '', 'WEEK TOTAL', '', '', '', '', '', '', (weekAllSecs / 3600).toFixed(2), '', '', weekAllAmount.toFixed(2), '']);
+          rows.push([]);
+        }
+      }
+
+      rows.push(['EMPLOYEE SUMMARY (all weeks listed above)']);
+      rows.push(['Employee', 'Emp ID', 'Total Hours', 'Total Amount (Rs)']);
+      let grandSecs = 0, grandAmt = 0;
+      Object.keys(summary).forEach(id => {
+        const s = summary[id];
+        grandSecs += s.secs; grandAmt += s.amt;
+        rows.push([s.name, id, (s.secs / 3600).toFixed(2), s.amt.toFixed(2)]);
+      });
+      rows.push(['ALL EMPLOYEES', '', (grandSecs / 3600).toFixed(2), grandAmt.toFixed(2)]);
+
+      const csv = '\uFEFF' + rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `VSG_Attendance_${monthVal}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      logAudit('ATTENDANCE_CSV', `Attendance CSV downloaded for ${monthVal}`);
     }
   </script>
 </body>
