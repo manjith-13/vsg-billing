@@ -58,7 +58,7 @@
     @keyframes spin { 100% { transform: rotate(360deg); } }
 
     @media print {
-      #offlineScreen, #loginScreen, #appScreen, .no-print { 
+      #offlineScreen, #loginScreen, #appScreen, #employeeScreen, .no-print { 
         display: none !important; 
       }
       .print-visible {
@@ -90,6 +90,7 @@
   <!-- Firebase App & Firestore SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 </head>
 <body class="bg-slate-100 text-slate-900 antialiased min-h-screen">
 
@@ -115,21 +116,201 @@
     <div class="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 border border-slate-200 text-slate-900">
       <div class="text-center mb-6">
         <h1 id="loginBrandTitle" class="text-2xl font-black tracking-tight font-brand text-slate-900">VSG Industries</h1>
-        <p class="text-xs text-slate-500 mt-1">Authorized Billing & Tax Management System</p>
+        <p class="text-xs text-slate-500 mt-1">Sign in with your Login ID (Owner or Staff)</p>
       </div>
       <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">USER ID</label>
-          <input type="text" id="loginUser" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-600 outline-none transition" placeholder="user_name">
+          <input type="text" id="loginUser" required autocapitalize="none" autocomplete="username" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-600 outline-none transition" placeholder="user_name">
         </div>
         <div>
           <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">PASSWORD</label>
-          <input type="password" id="loginPass" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-600 outline-none transition" placeholder="••••••••">
+          <input type="password" id="loginPass" required autocomplete="current-password" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:ring-2 focus:ring-blue-600 outline-none transition" placeholder="••••••••">
         </div>
-        <p id="loginError" class="text-xs text-rose-600 font-semibold hidden">Invalid User ID or Password</p>
-        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm transition shadow-md">Sign In</button>
+        <label class="flex items-center gap-2 text-xs text-slate-500 font-semibold"><input type="checkbox" onchange="togglePasswordVisibility()"> Show password</label>
+        <p id="loginError" class="text-xs text-rose-600 font-semibold hidden">Wrong Login ID or password.</p>
+        <button type="submit" id="loginSubmitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-sm transition shadow-md">Sign In</button>
       </form>
     </div>
+  </div>
+
+  <!-- EMPLOYEE PORTAL (phone-first) -->
+  <div id="employeeScreen" class="hidden min-h-screen bg-slate-100 text-slate-900 pb-28">
+    <header class="sticky top-0 z-40 bg-slate-900 text-white px-4 pb-3 flex items-center justify-between shadow-lg" style="padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);">
+      <div class="flex items-center gap-3 min-w-0">
+        <div id="staffHeaderAvatar" class="w-10 h-10 rounded-full bg-slate-700 overflow-hidden flex items-center justify-center font-black text-blue-300 shrink-0">V</div>
+        <div class="min-w-0">
+          <p class="text-[11px] text-slate-400 leading-tight font-brand tracking-wide">VSG INDUSTRIES</p>
+          <p id="staffHeaderName" class="text-sm font-black truncate">Loading...</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="toggleStaffTheme()" class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-amber-300" title="Dark / Light">🌙</button>
+        <button onclick="handleLogout()" class="px-3 h-10 rounded-xl bg-rose-600 text-xs font-bold">Logout</button>
+      </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 py-4 space-y-4">
+      <div id="staffNotice" class="hidden bg-amber-50/80 border border-amber-200 text-amber-900 rounded-2xl p-3 text-xs font-semibold"></div>
+
+      <!-- TODAY -->
+      <section id="staffTabToday" class="space-y-4">
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-5">
+          <p id="staffTodayDate" class="text-xs text-slate-500 font-semibold">-</p>
+          <h2 class="text-xl font-black text-slate-900 leading-tight mt-0.5">Hello, <span id="staffTodayName">-</span> 👋</h2>
+          <div id="staffTodayStatus" class="mt-3 inline-flex items-center px-3 py-1.5 rounded-full text-xs font-black bg-rose-100 text-rose-800">Not in yet</div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Check In</p>
+            <p id="staffPunchIn" class="text-lg font-black font-mono text-emerald-700 mt-1">-</p>
+          </div>
+          <div class="bg-amber-50/80 border border-amber-200 rounded-2xl p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-amber-800">Lunch Out</p>
+            <p id="staffPunchLunchOut" class="text-lg font-black font-mono text-amber-700 mt-1">-</p>
+          </div>
+          <div class="bg-blue-50/80 border border-blue-200 rounded-2xl p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-blue-800">Lunch In</p>
+            <p id="staffPunchLunchIn" class="text-lg font-black font-mono text-blue-700 mt-1">-</p>
+          </div>
+          <div class="bg-rose-50/80 border border-rose-200 rounded-2xl p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-rose-800">Check Out</p>
+            <p id="staffPunchOut" class="text-lg font-black font-mono text-rose-700 mt-1">-</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Worked Today</p>
+            <p id="staffTodayHours" class="text-lg font-black font-mono text-indigo-700 mt-1">-</p>
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Earned Today</p>
+            <p id="staffTodayEarned" class="text-lg font-black font-mono text-emerald-700 mt-1">₹0</p>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex items-center justify-between gap-3">
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">This Week So Far</p>
+            <p id="staffTodayWeek" class="text-xl font-black font-mono text-emerald-700 mt-0.5">₹0</p>
+            <p id="staffTodayWeekDays" class="text-[11px] text-slate-500">0 days worked</p>
+          </div>
+          <button onclick="switchStaffTab('attendance')" class="px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl shadow-sm">See Details</button>
+        </div>
+      </section>
+
+      <!-- ATTENDANCE -->
+      <section id="staffTabAttendance" class="hidden space-y-3">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3 flex items-center justify-between">
+          <button onclick="shiftStaffWeek(-1)" class="w-12 h-12 rounded-xl bg-slate-100 text-slate-700 font-black text-lg">◀</button>
+          <div class="text-center">
+            <p class="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Week (Mon – Sun)</p>
+            <p id="staffWeekLabel" class="text-sm font-black font-mono text-indigo-700">-</p>
+          </div>
+          <button onclick="shiftStaffWeek(1)" class="w-12 h-12 rounded-xl bg-slate-100 text-slate-700 font-black text-lg">▶</button>
+        </div>
+        <div id="staffWeekList" class="space-y-2"></div>
+        <div class="bg-emerald-50/80 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-800">Week Total</p>
+            <p id="staffWeekHours" class="text-xs text-emerald-700 font-semibold">0h 0m</p>
+          </div>
+          <p id="staffWeekTotal" class="text-2xl font-black font-mono text-emerald-700">₹0</p>
+        </div>
+        <button onclick="goToStaffThisWeek()" class="w-full py-3 bg-slate-800 text-white text-xs font-bold rounded-xl">Go to This Week</button>
+      </section>
+
+      <!-- SALARY -->
+      <section id="staffTabSalary" class="hidden space-y-4">
+        <div class="rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white p-5 shadow-md">
+          <p id="staffBalanceLabel" class="text-xs font-bold uppercase tracking-wider opacity-80">Balance to receive</p>
+          <p id="staffBalance" class="text-3xl font-black font-mono mt-1">₹0</p>
+          <p class="text-[11px] opacity-80 mt-1">Total earned minus total paid so far</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Earned</p>
+            <p id="staffTotalEarned" class="text-lg font-black font-mono text-emerald-700 mt-1">₹0</p>
+          </div>
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Total Paid</p>
+            <p id="staffTotalPaid" class="text-lg font-black font-mono text-blue-700 mt-1">₹0</p>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-2">
+          <h3 class="text-xs font-black uppercase tracking-wider text-slate-700">This Week</h3>
+          <div class="flex justify-between text-sm"><span class="text-slate-500">Earned</span><span id="staffSalWeekEarned" class="font-mono font-black text-emerald-700">₹0</span></div>
+          <div class="flex justify-between text-sm"><span class="text-slate-500">Paid</span><span id="staffSalWeekPaid" class="font-mono font-black text-blue-700">₹0</span></div>
+          <div class="flex justify-between text-sm border-t pt-2"><span class="text-slate-700 font-bold">Still due</span><span id="staffSalWeekDue" class="font-mono font-black text-rose-700">₹0</span></div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-2">
+          <h3 class="text-xs font-black uppercase tracking-wider text-slate-700">Your Pay Rate</h3>
+          <div class="flex justify-between text-sm"><span class="text-slate-500">Daily wage (8 hrs)</span><span id="staffRateDaily" class="font-mono font-black">₹0</span></div>
+          <div class="flex justify-between text-sm"><span class="text-slate-500">Per hour</span><span id="staffRateHourly" class="font-mono font-black">₹0</span></div>
+          <div class="flex justify-between text-sm"><span class="text-slate-500">Sunday (OT) per hour</span><span id="staffRateOT" class="font-mono font-black text-amber-700">₹0</span></div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+          <h3 class="text-xs font-black uppercase tracking-wider text-slate-700 mb-2">Payments You Received</h3>
+          <div id="staffPaymentsList" class="divide-y divide-slate-100"></div>
+        </div>
+      </section>
+
+      <!-- PROFILE -->
+      <section id="staffTabProfile" class="hidden space-y-4">
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 text-center">
+          <div id="staffProfilePhoto" class="w-24 h-24 rounded-full mx-auto bg-slate-200 overflow-hidden flex items-center justify-center text-3xl font-black text-slate-500">V</div>
+          <label class="mt-3 inline-block px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-xl cursor-pointer">
+            📷 Change Photo
+            <input type="file" accept="image/*" class="hidden" onchange="handleStaffPhotoPick(event)">
+          </label>
+          <p id="staffProfileIds" class="text-[11px] text-slate-500 mt-2">-</p>
+        </div>
+
+        <form id="staffProfileForm" onsubmit="saveStaffProfile(event)" oninput="staffFormDirty = true" class="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 space-y-3">
+          <h3 class="text-xs font-black uppercase tracking-wider text-slate-700">My Details</h3>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Full Name</label>
+            <input type="text" id="staffFullName" maxlength="60" class="w-full px-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl text-base outline-none focus:ring-2 focus:ring-blue-600">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Phone Number</label>
+            <input type="tel" inputmode="tel" id="staffPhone" maxlength="16" class="w-full px-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl text-base outline-none focus:ring-2 focus:ring-blue-600">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Address</label>
+            <textarea id="staffAddress" rows="2" maxlength="200" class="w-full px-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl text-base outline-none focus:ring-2 focus:ring-blue-600"></textarea>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Emergency Contact Name</label>
+            <input type="text" id="staffEmergName" maxlength="60" class="w-full px-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl text-base outline-none focus:ring-2 focus:ring-blue-600">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 mb-1">Emergency Contact Phone</label>
+            <input type="tel" inputmode="tel" id="staffEmergPhone" maxlength="16" class="w-full px-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl text-base outline-none focus:ring-2 focus:ring-blue-600">
+          </div>
+          <p id="staffProfileMsg" class="hidden text-xs font-semibold"></p>
+          <button type="submit" id="staffProfileSaveBtn" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-sm">Save Profile</button>
+          <p class="text-[11px] text-slate-500">The owner can see what you save here.</p>
+        </form>
+
+        <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-5 space-y-3">
+          <h3 class="text-xs font-black uppercase tracking-wider text-slate-700">Change Password</h3>
+          <input type="password" id="staffCurPass" placeholder="Current password" class="w-full px-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl text-base outline-none">
+          <input type="password" id="staffNewPass" placeholder="New password (min 6)" class="w-full px-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl text-base outline-none">
+          <input type="password" id="staffNewPass2" placeholder="Repeat new password" class="w-full px-3.5 py-3 bg-slate-50 border border-slate-300 rounded-xl text-base outline-none">
+          <p id="staffPassMsg" class="hidden text-xs font-semibold"></p>
+          <button onclick="changeMyPassword('staffCurPass','staffNewPass','staffNewPass2','staffPassMsg')" class="w-full py-3 bg-slate-800 text-white text-sm font-bold rounded-xl">Update Password</button>
+        </div>
+      </section>
+    </main>
+
+    <nav class="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]" style="padding-bottom: env(safe-area-inset-bottom, 0px);">
+      <div class="max-w-md mx-auto grid grid-cols-4">
+        <button id="staffNavToday" onclick="switchStaffTab('today')" class="py-2.5 flex flex-col items-center gap-0.5 text-blue-700"><span class="text-xl">🏠</span><span class="text-[11px] font-bold">Today</span></button>
+        <button id="staffNavAttendance" onclick="switchStaffTab('attendance')" class="py-2.5 flex flex-col items-center gap-0.5 text-slate-500"><span class="text-xl">📅</span><span class="text-[11px] font-bold">Attendance</span></button>
+        <button id="staffNavSalary" onclick="switchStaffTab('salary')" class="py-2.5 flex flex-col items-center gap-0.5 text-slate-500"><span class="text-xl">💰</span><span class="text-[11px] font-bold">Salary</span></button>
+        <button id="staffNavProfile" onclick="switchStaffTab('profile')" class="py-2.5 flex flex-col items-center gap-0.5 text-slate-500"><span class="text-xl">👤</span><span class="text-[11px] font-bold">Profile</span></button>
+      </div>
+    </nav>
   </div>
 
   <!-- MAIN APP PORTAL -->
@@ -155,7 +336,7 @@
         <button onclick="switchTab('history')" id="btnNavHistory" class="px-4 py-2 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-md transition">History</button>
         <button onclick="switchTab('payment')" id="btnNavPayment" class="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-md transition">Payment Ledger</button>
         <button onclick="switchTab('accounts')" id="btnNavAccounts" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-md transition">Accounts</button>
-        <button onclick="switchTab('attendance')" id="btnNavAttendance" class="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white shadow-md transition">Attendance</button>
+        <button onclick="switchTab('attendance')" id="btnNavAttendance" class="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white shadow-md transition">Attendance <span id="navAttendanceDot" class="hidden inline-block w-2 h-2 rounded-full bg-yellow-300 ml-1 animate-pulse"></span></button>
         <button onclick="switchTab('profile')" id="btnNavProfile" class="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white shadow-md transition">Profile & Backup</button>
         <button onclick="toggleAppTheme()" class="px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 transition" title="Toggle Theme">🌙/☀️</button>
         <button onclick="handleLogout()" class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white ml-2 shadow-md transition">Logout</button>
@@ -956,6 +1137,23 @@
       <!-- ============ ATTENDANCE TAB ============ -->
       <section id="tabAttendance" class="hidden space-y-6 no-print">
 
+        <div class="bg-white text-slate-900 rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+          <div class="pb-4 border-b border-slate-100">
+            <h2 class="text-base font-extrabold text-slate-800 tracking-tight">Attendance & Workforce</h2>
+            <p class="text-xs text-slate-500">Punch times, weekly salary, wages, and employee logins with profiles. Pick a section below.</p>
+          </div>
+          <div class="flex flex-wrap gap-2" id="attSubNav">
+            <button onclick="switchAttendanceSubTab('overview')" id="attBtnOverview" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all shadow-sm bg-cyan-600 text-white">Overview</button>
+            <button onclick="switchAttendanceSubTab('weekly')" id="attBtnWeekly" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900 bg-slate-100">Weekly Salary</button>
+            <button onclick="switchAttendanceSubTab('monthly')" id="attBtnMonthly" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900 bg-slate-100">Monthly Summary</button>
+            <button onclick="switchAttendanceSubTab('employees')" id="attBtnEmployees" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900 bg-slate-100">Employees</button>
+            <button onclick="switchAttendanceSubTab('wages')" id="attBtnWages" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900 bg-slate-100">Wages Paid</button>
+            <button onclick="switchAttendanceSubTab('logins')" id="attBtnLogins" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900 bg-slate-100">Staff Logins</button>
+            <button onclick="switchAttendanceSubTab('profiles')" id="attBtnProfiles" class="px-3.5 py-1.5 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900 bg-slate-100">Profiles <span id="attProfilesBadge" class="hidden ml-1 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black">0</span></button>
+          </div>
+        </div>
+
+        <div id="attPaneOverview" class="space-y-6">
         <!-- QUICK GUIDE -->
         <div class="bg-blue-50/80 border border-blue-200 rounded-2xl p-4 text-xs text-slate-700">
           <p class="font-black text-blue-900 mb-1.5">ℹ️ How this page works</p>
@@ -964,6 +1162,7 @@
             <li>Pay = hours worked × hourly rate. Hourly rate = the employee's <b>Daily Wage ÷ 8 hours</b>. Each employee can have a different Daily Wage.</li>
             <li><b>Monday to Saturday</b> is normal work. <b>Sunday work is counted as OT (overtime).</b></li>
             <li>The <b>Weekly Salary Sheet</b> adds up the week so on Saturday you can see exactly what to pay each person.</li>
+            <li>Employees can open the website on their phone with their own <b>Login ID</b> and see only their own attendance, salary and profile. Set that up in <b>Staff Logins</b>.</li>
           </ul>
         </div>
 
@@ -996,6 +1195,41 @@
           </div>
         </div>
 
+        <!-- DAILY ATTENDANCE LOG -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
+          <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-3 border-b border-slate-100 gap-4">
+            <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>📅</span> Daily Attendance Log</h2>
+            <div class="flex items-center gap-2 flex-wrap">
+              <label class="text-xs font-bold text-slate-600">Show only date:</label>
+              <input type="date" id="attendanceDateFilter" onchange="renderDailyAttendanceTable()" class="px-3 py-1.5 text-xs border rounded-lg bg-white font-medium text-slate-700 shadow-sm outline-none">
+              <button onclick="clearDateFilter()" class="px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition">Show All</button>
+            </div>
+          </div>
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                  <th class="py-3 px-4">Date</th>
+                  <th class="py-3 px-4">Employee</th>
+                  <th class="py-3 px-3 text-center text-emerald-700">Check In</th>
+                  <th class="py-3 px-3 text-center text-amber-700">Lunch Out</th>
+                  <th class="py-3 px-3 text-center text-blue-700">Lunch In</th>
+                  <th class="py-3 px-3 text-center text-rose-700">Check Out</th>
+                  <th class="py-3 px-3 text-center">Lunch Time</th>
+                  <th class="py-3 px-3 text-center font-black text-indigo-700">Hours Worked</th>
+                  <th class="py-3 px-3 text-right font-black text-emerald-700">Earned (₹)</th>
+                  <th class="py-3 px-3 text-center">Status</th>
+                  <th class="py-3 px-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="dailyAttendanceTableBody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        </div>
+
+        <div id="attPaneWeekly" class="hidden space-y-6">
         <!-- WEEKLY SALARY SHEET -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
           <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center pb-3 border-b border-slate-100 gap-4">
@@ -1053,38 +1287,9 @@
           </div>
         </div>
 
-        <!-- DAILY ATTENDANCE LOG -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4">
-          <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-3 border-b border-slate-100 gap-4">
-            <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>📅</span> Daily Attendance Log</h2>
-            <div class="flex items-center gap-2 flex-wrap">
-              <label class="text-xs font-bold text-slate-600">Show only date:</label>
-              <input type="date" id="attendanceDateFilter" onchange="renderDailyAttendanceTable()" class="px-3 py-1.5 text-xs border rounded-lg bg-white font-medium text-slate-700 shadow-sm outline-none">
-              <button onclick="clearDateFilter()" class="px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition">Show All</button>
-            </div>
-          </div>
-          <div class="overflow-x-auto border border-slate-200 rounded-xl">
-            <table class="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
-                  <th class="py-3 px-4">Date</th>
-                  <th class="py-3 px-4">Employee</th>
-                  <th class="py-3 px-3 text-center text-emerald-700">Check In</th>
-                  <th class="py-3 px-3 text-center text-amber-700">Lunch Out</th>
-                  <th class="py-3 px-3 text-center text-blue-700">Lunch In</th>
-                  <th class="py-3 px-3 text-center text-rose-700">Check Out</th>
-                  <th class="py-3 px-3 text-center">Lunch Time</th>
-                  <th class="py-3 px-3 text-center font-black text-indigo-700">Hours Worked</th>
-                  <th class="py-3 px-3 text-right font-black text-emerald-700">Earned (₹)</th>
-                  <th class="py-3 px-3 text-center">Status</th>
-                  <th class="py-3 px-3 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody id="dailyAttendanceTableBody" class="divide-y divide-slate-100"></tbody>
-            </table>
-          </div>
         </div>
 
+        <div id="attPaneMonthly" class="hidden space-y-6">
         <!-- MONTHLY ANALYTICS -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
           <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-100 gap-4">
@@ -1132,6 +1337,9 @@
           </div>
         </div>
 
+        </div>
+
+        <div id="attPaneEmployees" class="hidden space-y-6">
         <!-- EMPLOYEE DIRECTORY & ENROLLMENT -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3 border-b border-slate-100 gap-3">
@@ -1180,6 +1388,7 @@
               <thead>
                 <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
                   <th class="py-3 px-4 text-center w-16">ID</th>
+                  <th class="py-3 px-4 text-center">Roll No</th>
                   <th class="py-3 px-4">Name</th>
                   <th class="py-3 px-4">Role</th>
                   <th class="py-3 px-4 text-center">Fingerprint Slot</th>
@@ -1194,6 +1403,9 @@
           </div>
         </div>
 
+        </div>
+
+        <div id="attPaneWages" class="hidden space-y-6">
         <!-- WAGES & PAYMENTS -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
           <div class="flex flex-col md:flex-row justify-between items-start md:items-center pb-3 border-b border-slate-100 gap-3">
@@ -1269,6 +1481,87 @@
                 <tbody id="labourPaymentsTableBody" class="divide-y divide-slate-100"></tbody>
               </table>
             </div>
+          </div>
+        </div>
+        </div>
+
+        <!-- ===== STAFF LOGINS (ADMIN CONTROL) ===== -->
+        <div id="attPaneLogins" class="hidden space-y-6">
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
+            <div class="pb-3 border-b border-slate-100">
+              <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>🔐</span> Staff Logins <span class="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-black">ADMIN ONLY</span></h2>
+              <p class="text-xs text-slate-500">Every employee's <b>Roll No</b> (VSG_001, VSG_002 … taken from their Employee ID) is their Login ID and cannot be changed. You only choose a password. Then share the website link with them. On their phone they see only their own attendance, salary and profile.</p>
+            </div>
+
+            <form id="staffLoginForm" onsubmit="createStaffLogin(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Employee</label>
+                <select id="staffLoginEmpSelect" required onchange="updateStaffLoginRollPreview()" class="w-full px-3 py-2 border rounded-lg text-xs bg-white font-semibold outline-none"></select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Roll No = Login ID <span class="font-normal">(fixed)</span></label>
+                <input type="text" id="staffLoginRoll" readonly tabindex="-1" class="w-full px-3 py-2 border rounded-lg text-xs bg-slate-100 font-mono font-black text-indigo-700 outline-none cursor-not-allowed">
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Password <span class="font-normal">(min 6)</span></label>
+                <input type="text" id="staffLoginPass" required minlength="6" maxlength="30" placeholder="e.g. siva@123" class="w-full px-3 py-2 border rounded-lg text-xs bg-white font-mono font-bold outline-none">
+              </div>
+              <div class="flex items-end">
+                <button type="submit" id="staffLoginSubmitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-lg shadow-sm transition">Create Login</button>
+              </div>
+            </form>
+            <p id="staffLoginMsg" class="hidden text-xs font-semibold"></p>
+
+            <div id="staffLoginShareBox" class="hidden bg-emerald-50/80 border border-emerald-200 rounded-xl p-4 space-y-2">
+              <p class="text-xs font-black uppercase tracking-wider text-emerald-900">Login created — send this to the employee</p>
+              <textarea id="staffShareText" readonly rows="6" class="w-full px-3 py-2 border rounded-lg text-xs bg-white font-mono outline-none"></textarea>
+              <div class="flex flex-wrap gap-2">
+                <button onclick="copyStaffShareText()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg transition">Copy Message</button>
+                <a id="staffShareWhatsapp" href="#" target="_blank" rel="noopener" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition">Send on WhatsApp</a>
+              </div>
+              <p class="text-[11px] text-emerald-800">The password is shown only now and is not stored anywhere you can read it later. Employees can change it themselves from their Profile page.</p>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 font-bold border-b text-[11px] uppercase tracking-wider">
+                    <th class="py-3 px-4">Employee</th>
+                    <th class="py-3 px-4">Login ID</th>
+                    <th class="py-3 px-4 text-center">Status</th>
+                    <th class="py-3 px-4">Profile Updated</th>
+                    <th class="py-3 px-4 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="staffLoginsTableBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+            <p class="text-[11px] text-slate-500">Forgot a password? Click <b>Issue new login</b> — the old password is switched off and a new one is created. The Roll No stays the same. (The app cannot read an existing password.)</p>
+          </div>
+
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-3">
+            <h3 class="text-sm font-black text-slate-900 flex items-center gap-2"><span>🔑</span> Change My Admin Password</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <input type="password" id="adminCurPass" placeholder="Current password" class="px-3 py-2 border rounded-lg text-xs bg-white outline-none">
+              <input type="password" id="adminNewPass" placeholder="New password (min 6)" class="px-3 py-2 border rounded-lg text-xs bg-white outline-none">
+              <input type="password" id="adminNewPass2" placeholder="Repeat new password" class="px-3 py-2 border rounded-lg text-xs bg-white outline-none">
+              <button onclick="changeMyPassword('adminCurPass','adminNewPass','adminNewPass2','adminPassMsg')" class="bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs py-2.5 rounded-lg transition">Update Password</button>
+            </div>
+            <p id="adminPassMsg" class="hidden text-xs font-semibold"></p>
+          </div>
+        </div>
+
+        <!-- ===== EMPLOYEE PROFILES ===== -->
+        <div id="attPaneProfiles" class="hidden space-y-6">
+          <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-3 border-b border-slate-100 gap-3">
+              <div>
+                <h2 class="text-base font-black text-slate-900 tracking-tight flex items-center gap-2"><span>🪪</span> Employee Profiles</h2>
+                <p class="text-xs text-slate-500">Details your employees fill in on their own phones show up here. <b>NEW</b> marks updates you haven't seen yet.</p>
+              </div>
+              <button onclick="markProfilesSeen()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition">Mark all as seen</button>
+            </div>
+            <div id="staffProfilesGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
           </div>
         </div>
       </section>
@@ -1780,22 +2073,186 @@
       }
     }
 
-    function handleLogin(e) {
+    // ==========================================
+    // AUTH & ROLES (Firebase Authentication) - no passwords are stored in this file
+    // ==========================================
+    const ADMIN_EMAIL = 'ganesh@vsg-billing.app';
+    const LOGIN_EMAIL_DOMAIN = '@vsg-billing.app';
+    let auth = null;
+    let currentRole = null;      // 'admin' | 'staff'
+    let currentAuthUser = null;
+    let staffProfile = null;     // employee_users doc of the logged-in employee
+    let appInitialized = false;
+
+    try { auth = firebase.auth(); } catch (e) { console.warn('Firebase Auth unavailable:', e); }
+
+    // Roll number = Login ID. Always VSG_ + the employee's ID padded to 3 digits (ID 1 -> VSG_001). It cannot be edited.
+    function rollNoFor(empId) { return 'VSG_' + String(empId).padStart(3, '0'); }
+
+    // Accepts "VSG_001", "vsg001", "VSG 1" ... and returns the canonical lowercase form "vsg_001".
+    // The admin login ("ganesh") passes through unchanged.
+    function normalizeLoginId(raw) {
+      const t = String(raw || '').trim();
+      if (t.includes('@')) return t.toLowerCase();
+      const m = t.match(/^vsg[_\-\s]?0*(\d+)$/i);
+      if (m) return 'vsg_' + String(m[1]).padStart(3, '0');
+      return t.toLowerCase();
+    }
+
+    // The hidden sign-in address behind a Login ID. Version 1 is the first account; if the admin issues a new
+    // login for the same roll number (forgotten password) the version goes up, so the Roll No never changes.
+    function authEmailFor(normId, version) {
+      if (normId.includes('@')) return normId;
+      return normId + (version > 1 ? '.v' + version : '') + LOGIN_EMAIL_DOMAIN;
+    }
+
+    function escapeHtml(str) {
+      return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function safePhotoSrc(p) {
+      return (typeof p === 'string' && p.length < 300000 && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(p)) ? p : '';
+    }
+
+    function showLoginError(msg) {
+      const el = document.getElementById('loginError');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    function authErrorMessage(err) {
+      const code = (err && err.code) || '';
+      if (['auth/user-not-found', 'auth/wrong-password', 'auth/invalid-credential', 'auth/invalid-login-credentials', 'auth/invalid-email'].includes(code)) return 'Wrong Login ID or password.';
+      if (code === 'auth/too-many-requests') return 'Too many attempts. Please wait a few minutes and try again.';
+      if (code === 'auth/network-request-failed') return 'No internet connection. Please check and try again.';
+      if (code === 'auth/operation-not-allowed') return 'Email/Password sign-in is not switched on in Firebase yet.';
+      if (code === 'auth/user-disabled') return 'This login has been switched off. Please contact the owner.';
+      return 'Could not sign in (' + (code || 'unknown error') + ').';
+    }
+
+    function togglePasswordVisibility() {
+      const inp = document.getElementById('loginPass');
+      inp.type = (inp.type === 'password') ? 'text' : 'password';
+    }
+
+    async function handleLogin(e) {
       e.preventDefault();
+      document.getElementById('loginError').classList.add('hidden');
+      if (!auth) { showLoginError('Login service is not available. Check your internet connection and reload the page.'); return; }
       const u = document.getElementById('loginUser').value.trim();
-      const p = document.getElementById('loginPass').value.trim();
-      if (u === 'ganesh' && p === 'vsg69') {
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('appScreen').classList.remove('hidden');
-        initApp();
-      } else {
-        document.getElementById('loginError').classList.remove('hidden');
+      const p = document.getElementById('loginPass').value;
+      const btn = document.getElementById('loginSubmitBtn');
+      btn.disabled = true; btn.textContent = 'Signing in...';
+      try {
+        const normId = normalizeLoginId(u);
+        let version = 1;
+        if (db && !normId.includes('@') && normId !== 'ganesh') {
+          try {
+            const vd = await db.collection('login_versions').doc(normId).get({ source: 'server' });
+            if (vd.exists && Number(vd.data().v) > 1) version = Number(vd.data().v);
+          } catch (e) { /* offline or no entry: use the first version */ }
+        }
+        await auth.signInWithEmailAndPassword(authEmailFor(normId, version), p);
+        // handleAuthState() takes it from here
+      } catch (err) {
+        showLoginError(authErrorMessage(err));
+      } finally {
+        btn.disabled = false; btn.textContent = 'Sign In';
       }
     }
 
-    function handleLogout() {
-      document.getElementById('appScreen').classList.add('hidden');
-      document.getElementById('loginScreen').classList.remove('hidden');
+    async function handleLogout() {
+      try { if (auth) await auth.signOut(); } catch (e) { console.warn(e); }
+      window.location.reload();
+    }
+
+    function showOnlyScreen(name) {
+      ['loginScreen', 'appScreen', 'employeeScreen'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('hidden', id !== name);
+      });
+    }
+
+    async function handleAuthState(user) {
+      currentAuthUser = user;
+      if (!user) { currentRole = null; showOnlyScreen('loginScreen'); return; }
+
+      if ((user.email || '').toLowerCase() === ADMIN_EMAIL) {
+        currentRole = 'admin';
+        showOnlyScreen('appScreen');
+        if (!appInitialized) { appInitialized = true; initApp(); }
+        return;
+      }
+
+      // Anyone else must be an employee whose login was created by the admin
+      try {
+        const snap = await db.collection('employee_users').doc(user.uid).get();
+        if (!snap.exists || snap.data().disabled === true) {
+          await auth.signOut();
+          showOnlyScreen('loginScreen');
+          showLoginError('This login is not active. Please contact the owner.');
+          return;
+        }
+        currentRole = 'staff';
+        staffProfile = Object.assign({ uid: user.uid }, snap.data());
+        showOnlyScreen('employeeScreen');
+        initStaffPortal();
+      } catch (err) {
+        console.warn('Staff account check failed:', err);
+        try { await auth.signOut(); } catch (e) {}
+        showOnlyScreen('loginScreen');
+        showLoginError('Could not load your account. Check your internet and try again.');
+      }
+    }
+
+    function setupAuthListener() {
+      if (!auth) { showLoginError('Login service is not available. Check your internet connection and reload the page.'); return; }
+      auth.onAuthStateChanged(handleAuthState);
+    }
+
+    // Re-checks the admin's password before risky actions (replaces the old hardcoded PIN)
+    async function requireAdminPassword(actionText) {
+      if (currentRole !== 'admin' || !auth || !auth.currentUser) { alert('Only the admin can do this.'); return false; }
+      const pass = prompt(`Security check: enter your admin password to ${actionText}:`);
+      if (pass === null || pass === '') return false;
+      try {
+        const cred = firebase.auth.EmailAuthProvider.credential(auth.currentUser.email, pass);
+        await auth.currentUser.reauthenticateWithCredential(cred);
+        return true;
+      } catch (err) {
+        alert('Incorrect password. Action cancelled.');
+        return false;
+      }
+    }
+
+    // Used by both the admin and employee "Change password" boxes
+    async function changeMyPassword(curId, newId, newId2, msgId) {
+      const msg = document.getElementById(msgId);
+      const show = (text, ok) => {
+        msg.textContent = text;
+        msg.className = 'text-xs font-semibold ' + (ok ? 'text-emerald-700' : 'text-rose-600');
+      };
+      const cur = document.getElementById(curId).value;
+      const nw = document.getElementById(newId).value;
+      const nw2 = document.getElementById(newId2).value;
+      if (!cur || !nw) { show('Please fill in all the password boxes.', false); return; }
+      if (nw.length < 6) { show('New password must be at least 6 characters.', false); return; }
+      if (nw !== nw2) { show('The two new passwords do not match.', false); return; }
+      if (!auth || !auth.currentUser) { show('You are not signed in.', false); return; }
+      try {
+        const cred = firebase.auth.EmailAuthProvider.credential(auth.currentUser.email, cur);
+        await auth.currentUser.reauthenticateWithCredential(cred);
+        await auth.currentUser.updatePassword(nw);
+        document.getElementById(curId).value = '';
+        document.getElementById(newId).value = '';
+        document.getElementById(newId2).value = '';
+        show('Password updated successfully.', true);
+      } catch (err) {
+        const code = (err && err.code) || '';
+        if (['auth/wrong-password', 'auth/invalid-credential', 'auth/invalid-login-credentials'].includes(code)) show('Current password is wrong.', false);
+        else if (code === 'auth/weak-password') show('That new password is too weak.', false);
+        else show('Could not update password (' + (code || 'error') + ').', false);
+      }
     }
 
     function initApp() {
@@ -1815,6 +2272,7 @@
 
       if (isCloudActive) {
         listenCloudSync();
+        startStaffAdminListeners();
       } else {
         const badge = document.getElementById('cloudStatusBadge');
         if (badge) {
@@ -2011,11 +2469,7 @@
     async function deleteCycleHelper(cycleToDelete) {
       if (!cycleToDelete) return;
 
-      const enteredPass = prompt(`Security Verification: Enter admin password to delete cycle "${cycleToDelete}":`);
-      if (enteredPass !== "vsg69") {
-        alert("Incorrect password! Deletion cancelled.");
-        return;
-      }
+      if (!(await requireAdminPassword(`delete cycle "${cycleToDelete}"`))) return;
 
       const matchingDocs = documents.filter(d => (d.cycle || calculateCycle(d.date)) === cycleToDelete);
       let confirmMsg = `Are you sure you want to permanently delete cycle "${cycleToDelete}"?`;
@@ -2832,9 +3286,9 @@
                 documents.forEach(d => b.set(db.collection("documents").doc(d.number), d));
                 payments.forEach(p => b.set(db.collection("payments").doc(String(p.id)), p));
                 expenses.forEach(x => b.set(db.collection("expenses").doc(String(x.id)), x));
-                employeesList.forEach(em => b.set(db.collection("attendance_employees").doc(String(em.id)), em));
                 labourPayments.forEach(wp => b.set(db.collection("labour_payments").doc(String(wp.id)), wp));
                 await b.commit();
+                for (const em of employeesList) { await saveEmployeeToCloud(em); }
               }
 
               localStorage.setItem('vsg_company_profile', JSON.stringify(profile));
@@ -4220,8 +4674,8 @@
         const colorClass = actionColors[entry.action] || 'text-slate-700 bg-slate-100';
         tr.innerHTML = `
           <td class="py-2.5 px-3 font-mono text-slate-600 whitespace-nowrap">${formatDisplayDate(entry.timestamp.slice(0,10))} ${dt.toTimeString().slice(0,5)}</td>
-          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-md font-bold text-[10px] ${colorClass}">${(entry.action || '').replace(/_/g, ' ')}</span></td>
-          <td class="py-2.5 px-3 text-slate-700">${entry.details || ''}</td>
+          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-md font-bold text-[10px] ${colorClass}">${escapeHtml((entry.action || '').replace(/_/g, ' '))}</span></td>
+          <td class="py-2.5 px-3 text-slate-700">${escapeHtml(entry.details || '')}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -4242,6 +4696,10 @@
     let otMultiplier = parseFloat(localStorage.getItem('vsg_ot_multiplier'));
     if (isNaN(otMultiplier) || otMultiplier < 0) otMultiplier = 1;
     let salaryWeekStart = null;
+    let wagesMap = JSON.parse(localStorage.getItem('vsg_wages_map')) || {};
+    let staffUsers = [];
+    let attendanceSubTab = 'overview';
+    const migratedWageIds = new Set();
     let attendanceModuleStarted = false;
     let attendanceEnrollTimeoutHandle = null;
     let attendanceEnrollUnsubscribe = null;
@@ -4253,8 +4711,10 @@
       const s = String(str).trim();
       let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
       if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
-      m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+      m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
       if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+      m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2})$/);
+      if (m) return `20${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
       return s;
     }
     function isoToLocalDate(iso) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); }
@@ -4280,6 +4740,9 @@
       calculateMonthlyMetrics();
       renderLabourWageTable();
       renderLabourPaymentsList();
+      populateStaffLoginEmpSelect();
+      renderStaffLogins();
+      renderStaffProfiles();
     }
 
     function attendanceTabVisible() {
@@ -4298,13 +4761,21 @@
             if (!snapshot.empty) {
               const emps = [];
               snapshot.forEach(doc => emps.push(doc.data()));
+              // One-time move of any old wage stored on the public employee record into the private wages collection
+              emps.forEach(em => {
+                if (typeof em.dailyWage === 'number' && wagesMap[em.id] == null && !migratedWageIds.has(em.id)) {
+                  migratedWageIds.add(em.id);
+                  db.collection('employee_wages').doc(String(em.id)).set({ empId: em.id, dailyWage: em.dailyWage })
+                    .then(() => db.collection('attendance_employees').doc(String(em.id)).update({ dailyWage: firebase.firestore.FieldValue.delete() }))
+                    .catch(err => console.warn('Wage migration skipped:', err.code));
+                }
+              });
               employeesList = emps;
+              applyWagesToEmployees();
               localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
               if (attendanceTabVisible()) refreshAttendanceUI();
             } else {
-              defaultEmployees.forEach(emp => {
-                db.collection("attendance_employees").doc(String(emp.id)).set(emp);
-              });
+              defaultEmployees.forEach(emp => { saveEmployeeToCloud(emp).catch(err => console.warn(err.code)); });
             }
           });
 
@@ -4351,7 +4822,7 @@
       document.getElementById('otMultiplierInput').value = otMultiplier;
       if (!salaryWeekStart) salaryWeekStart = getWeekStartISO(getTodayISO());
 
-      refreshAttendanceUI();
+      switchAttendanceSubTab(attendanceSubTab);
     }
 
     function syncAttendance() { refreshAttendanceUI(); }
@@ -4391,9 +4862,7 @@
 
       const empData = { id, name, role, fingerprint: id, status, dailyWage };
 
-      if (isCloudActive) {
-        await db.collection("attendance_employees").doc(String(id)).set(empData);
-      }
+      await saveEmployeeToCloud(empData);
 
       const idx = employeesList.findIndex(em => em.id === id);
       if (idx !== -1) employeesList[idx] = empData;
@@ -4408,13 +4877,13 @@
     }
 
     async function deleteEmployee(id) {
-      const adminPin = (profile && profile.adminPin) ? profile.adminPin : 'vsg69';
-      const pass = prompt(`Admin PIN required to delete Employee #${id}:`);
-      if (pass === null) return;
-      if (pass !== adminPin) { alert("Incorrect PIN! Deletion cancelled."); return; }
+      if (!(await requireAdminPassword(`delete Employee #${id}`))) return;
 
       if (confirm(`Are you sure you want to permanently remove Employee #${id}?`)) {
-        if (isCloudActive) await db.collection("attendance_employees").doc(String(id)).delete();
+        if (isCloudActive) {
+          await db.collection("attendance_employees").doc(String(id)).delete();
+          try { await db.collection("employee_wages").doc(String(id)).delete(); } catch (e) {}
+        }
         const emp = employeesList.find(e => e.id === id);
         employeesList = employeesList.filter(e => e.id !== id);
         localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
@@ -4427,7 +4896,7 @@
       const emp = employeesList.find(e => e.id === id);
       if (!emp) return;
       emp.status = (emp.status === 'Active') ? 'Inactive' : 'Active';
-      if (isCloudActive) await db.collection("attendance_employees").doc(String(id)).set(emp);
+      await saveEmployeeToCloud(emp);
       localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
       refreshAttendanceUI();
     }
@@ -4499,6 +4968,7 @@
         tr.className = 'hover:bg-slate-50 transition border-b';
         tr.innerHTML = `
           <td class="py-3 px-4 text-center font-mono font-black text-indigo-700 cursor-pointer" onclick="openAttendanceProfileModal(${emp.id})">${emp.id}</td>
+          <td class="py-3 px-4 text-center font-mono font-bold text-slate-600">${rollNoFor(emp.id)}</td>
           <td class="py-3 px-4 font-bold text-slate-900 cursor-pointer" onclick="openAttendanceProfileModal(${emp.id})">
             ${emp.name} <span class="text-[10px] text-blue-600 font-semibold underline ml-1">Profile ↗</span>
           </td>
@@ -4737,10 +5207,7 @@
 
     // ---------- daily log ----------
     async function deleteDailyLog(dateStr, empId) {
-      const adminPin = (profile && profile.adminPin) ? profile.adminPin : 'vsg69';
-      const pass = prompt(`Admin PIN required to delete log for Employee #${empId} on ${dateStr}:`);
-      if (pass === null) return;
-      if (pass !== adminPin) { alert("Incorrect PIN! Deletion cancelled."); return; }
+      if (!(await requireAdminPassword(`delete the attendance log of Employee #${empId} on ${dateStr}`))) return;
 
       if (confirm(`Confirm permanent deletion of attendance log for Employee #${empId} on ${dateStr}?`)) {
         const matches = (e) => normalizeDateISO(e.date) === dateStr && Number(e.id) === Number(empId);
@@ -5116,6 +5583,599 @@
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       logAudit('ATTENDANCE_CSV', `Attendance CSV downloaded for ${monthVal}`);
     }
+
+    // ==========================================
+    // 10. ADMIN: STAFF LOGINS, PROFILES, SECTIONS
+    // ==========================================
+    function formatDateTime(ts) {
+      if (!ts) return '—';
+      const d = new Date(ts);
+      return `${formatDisplayDate(localDateToISO(d))} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
+    function switchAttendanceSubTab(tab) {
+      attendanceSubTab = tab;
+      const names = { overview: 'Overview', weekly: 'Weekly', monthly: 'Monthly', employees: 'Employees', wages: 'Wages', logins: 'Logins', profiles: 'Profiles' };
+      Object.keys(names).forEach(k => {
+        const pane = document.getElementById('attPane' + names[k]);
+        const btn = document.getElementById('attBtn' + names[k]);
+        if (pane) pane.classList.toggle('hidden', k !== tab);
+        if (btn) btn.className = k === tab
+          ? "px-3.5 py-1.5 rounded-lg text-xs font-black transition-all shadow-sm bg-cyan-600 text-white"
+          : "px-3.5 py-1.5 rounded-lg text-xs font-black transition-all text-slate-600 hover:text-slate-900 bg-slate-100";
+      });
+      refreshAttendanceUI();
+    }
+
+    function applyWagesToEmployees() {
+      employeesList.forEach(e => {
+        if (wagesMap[e.id] != null) e.dailyWage = wagesMap[e.id];
+        else if (typeof e.dailyWage !== 'number') e.dailyWage = 0;
+      });
+    }
+
+    // Wages live in their own private collection so the fingerprint machine / staff can't read them
+    async function saveEmployeeToCloud(emp) {
+      const pub = Object.assign({}, emp);
+      delete pub.dailyWage;
+      wagesMap[emp.id] = emp.dailyWage || 0;
+      localStorage.setItem('vsg_wages_map', JSON.stringify(wagesMap));
+      if (!isCloudActive) return;
+      await db.collection('attendance_employees').doc(String(emp.id)).set(pub);
+      await db.collection('employee_wages').doc(String(emp.id)).set({ empId: emp.id, dailyWage: emp.dailyWage || 0 });
+    }
+
+    function startStaffAdminListeners() {
+      if (!isCloudActive) return;
+      db.collection('employee_wages').onSnapshot((snapshot) => {
+        const map = {};
+        snapshot.forEach(d => { const v = d.data(); map[v.empId != null ? v.empId : Number(d.id)] = v.dailyWage || 0; });
+        wagesMap = map;
+        localStorage.setItem('vsg_wages_map', JSON.stringify(wagesMap));
+        applyWagesToEmployees();
+        if (attendanceTabVisible()) refreshAttendanceUI();
+      }, (err) => console.warn('employee_wages listener:', err.code));
+
+      db.collection('employee_users').onSnapshot((snapshot) => {
+        const list = [];
+        snapshot.forEach(d => list.push(Object.assign({ uid: d.id }, d.data())));
+        staffUsers = list;
+        renderStaffProfiles();
+        if (attendanceTabVisible()) { populateStaffLoginEmpSelect(); renderStaffLogins(); }
+      }, (err) => console.warn('employee_users listener:', err.code));
+    }
+
+    function getActiveLoginForEmp(empId) {
+      return staffUsers.find(u => Number(u.empId) === Number(empId) && !u.disabled);
+    }
+
+    function populateStaffLoginEmpSelect() {
+      const sel = document.getElementById('staffLoginEmpSelect');
+      if (!sel) return;
+      const cur = sel.value;
+      sel.innerHTML = [...employeesList].sort((a, b) => a.id - b.id).map(e => {
+        const has = getActiveLoginForEmp(e.id);
+        return `<option value="${e.id}">${rollNoFor(e.id)} — ${escapeHtml(e.name)}${has ? ' (has a login: new password will replace it)' : ''}</option>`;
+      }).join('');
+      if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+      updateStaffLoginRollPreview();
+    }
+
+    function showStaffLoginMsg(text, ok) {
+      const el = document.getElementById('staffLoginMsg');
+      if (!el) return;
+      el.textContent = text;
+      el.className = 'text-xs font-semibold ' + (ok ? 'text-emerald-700' : 'text-rose-600');
+    }
+
+    function updateStaffLoginRollPreview() {
+      const sel = document.getElementById('staffLoginEmpSelect');
+      const el = document.getElementById('staffLoginRoll');
+      if (el) el.value = (sel && sel.value) ? rollNoFor(sel.value) : '';
+    }
+
+    async function createStaffLogin(e) {
+      e.preventDefault();
+      if (currentRole !== 'admin') return;
+      const empId = parseInt(document.getElementById('staffLoginEmpSelect').value);
+      const emp = getEmpById(empId);
+      const password = document.getElementById('staffLoginPass').value;
+
+      if (!emp) { showStaffLoginMsg('Please choose an employee.', false); return; }
+      if (password.length < 6) { showStaffLoginMsg('Password must be at least 6 characters.', false); return; }
+
+      const rollNo = rollNoFor(empId);
+      const normId = rollNo.toLowerCase();
+      const existing = getActiveLoginForEmp(empId);
+      if (existing && !confirm(`${emp.name} (${rollNo}) already has a login. Switch the old password off and create a new one?`)) return;
+
+      const btn = document.getElementById('staffLoginSubmitBtn');
+      btn.disabled = true; btn.textContent = 'Creating...';
+      showStaffLoginMsg('Creating login...', true);
+      try {
+        // A second Firebase app instance creates the account so the admin stays signed in
+        const secondary = firebase.apps.find(a => a.name === 'staffCreator') || firebase.initializeApp(firebaseConfig, 'staffCreator');
+        await secondary.auth().setPersistence(firebase.auth.Auth.Persistence.NONE);
+
+        const usedVersions = staffUsers.filter(u => Number(u.empId) === empId).map(u => Number(u.authVersion) || 1);
+        let version = usedVersions.length ? Math.max(...usedVersions) + 1 : 1;
+        let uid = null;
+        for (let attempt = 0; attempt < 6 && !uid; attempt++) {
+          try {
+            const cred = await secondary.auth().createUserWithEmailAndPassword(authEmailFor(normId, version), password);
+            uid = cred.user.uid;
+          } catch (err) {
+            if (err && err.code === 'auth/email-already-in-use') { version++; continue; }
+            throw err;
+          }
+        }
+        if (!uid) throw { code: 'too-many-versions' };
+        await secondary.auth().signOut();
+
+        await db.collection('employee_users').doc(uid).set({
+          uid, loginId: rollNo, authVersion: version, empId, empName: emp.name, disabled: false, createdAt: Date.now(),
+          fullName: emp.name, phone: '', address: '', emergencyName: '', emergencyPhone: '', photo: '', profileUpdatedAt: 0
+        });
+        await db.collection('login_versions').doc(normId).set({ v: version });
+        if (existing) await db.collection('employee_users').doc(existing.uid).update({ disabled: true });
+
+        logAudit('STAFF_LOGIN_CREATE', `Login ${rollNo} created for ${emp.name} (#${empId})`);
+
+        const siteUrl = window.location.origin + window.location.pathname;
+        const text = `VSG Industries - Staff Login\n\nWebsite: ${siteUrl}\nLogin ID (Roll No): ${rollNo}\nPassword: ${password}\n\nOpen the link on your phone to see your attendance, salary and profile. Please change your password after your first login (Profile > Change Password).`;
+        document.getElementById('staffShareText').value = text;
+        document.getElementById('staffShareWhatsapp').href = 'https://wa.me/?text=' + encodeURIComponent(text);
+        document.getElementById('staffLoginShareBox').classList.remove('hidden');
+        document.getElementById('staffLoginPass').value = '';
+        showStaffLoginMsg(`Login created for ${emp.name}: ${rollNo}`, true);
+      } catch (err) {
+        const code = (err && err.code) || '';
+        if (code === 'auth/weak-password') showStaffLoginMsg('That password is too weak. Use at least 6 characters.', false);
+        else if (code === 'auth/operation-not-allowed') showStaffLoginMsg('Email/Password sign-in is not switched on in Firebase yet.', false);
+        else if (code === 'auth/network-request-failed') showStaffLoginMsg('No internet connection. Please try again.', false);
+        else if (code === 'permission-denied') showStaffLoginMsg('The login was created but could not be saved (database permission). Check the Firestore rules.', false);
+        else showStaffLoginMsg('Could not create login (' + (code || err.message || 'error') + ').', false);
+      } finally {
+        btn.disabled = false; btn.textContent = 'Create Login';
+      }
+    }
+
+    function copyStaffShareText() {
+      const ta = document.getElementById('staffShareText');
+      const done = () => showStaffLoginMsg('Message copied. Paste it in WhatsApp or SMS.', true);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(ta.value).then(done).catch(() => { ta.select(); document.execCommand('copy'); done(); });
+      } else { ta.select(); document.execCommand('copy'); done(); }
+    }
+
+    async function toggleStaffLoginDisabled(uid) {
+      const u = staffUsers.find(x => x.uid === uid);
+      if (!u) return;
+      const makeDisabled = !u.disabled;
+      if (!confirm(makeDisabled ? `Switch off the login "${u.loginId}"? ${u.empName} will not be able to sign in.` : `Switch the login "${u.loginId}" back on?`)) return;
+      try {
+        await db.collection('employee_users').doc(uid).update({ disabled: makeDisabled });
+        logAudit(makeDisabled ? 'STAFF_LOGIN_OFF' : 'STAFF_LOGIN_ON', `Login "${u.loginId}" (${u.empName}) ${makeDisabled ? 'switched off' : 'switched on'}`);
+      } catch (err) { alert('Could not update: ' + (err.code || err.message)); }
+    }
+
+    function issueNewLoginFor(empId) {
+      document.getElementById('staffLoginEmpSelect').value = String(empId);
+      updateStaffLoginRollPreview();
+      document.getElementById('staffLoginPass').focus();
+      document.getElementById('staffLoginForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function renderStaffLogins() {
+      const tbody = document.getElementById('staffLoginsTableBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      if (staffUsers.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 font-medium">No staff logins yet. Create the first one above.</td></tr>`;
+        return;
+      }
+      [...staffUsers].sort((a, b) => (a.empId - b.empId) || ((b.createdAt || 0) - (a.createdAt || 0))).forEach(u => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b';
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(u.empName)} <span class="text-slate-400 font-mono font-normal">#${escapeHtml(u.empId)}</span></td>
+          <td class="py-3 px-4 font-mono font-bold text-indigo-700">${escapeHtml(u.loginId)}</td>
+          <td class="py-3 px-4 text-center"><span class="px-2.5 py-0.5 rounded-full text-[10px] font-black ${u.disabled ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}">${u.disabled ? 'OFF' : 'ACTIVE'}</span></td>
+          <td class="py-3 px-4 font-mono text-slate-600">${formatDateTime(u.profileUpdatedAt)}</td>
+          <td class="py-3 px-4 text-center space-x-3 whitespace-nowrap">
+            <button onclick="toggleStaffLoginDisabled('${u.uid}')" class="text-xs font-bold ${u.disabled ? 'text-emerald-700' : 'text-rose-600'} underline">${u.disabled ? 'Switch on' : 'Switch off'}</button>
+            ${u.disabled ? '' : `<button onclick="issueNewLoginFor(${Number(u.empId)})" class="text-xs font-bold text-blue-600 underline">Issue new login</button>`}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function getProfilesSeenAt() { return parseInt(localStorage.getItem('vsg_profiles_seen_at')) || 0; }
+
+    function markProfilesSeen() {
+      localStorage.setItem('vsg_profiles_seen_at', String(Date.now()));
+      renderStaffProfiles();
+    }
+
+    function renderStaffProfiles() {
+      const seenAt = getProfilesSeenAt();
+      const visible = staffUsers.filter(u => !u.disabled).sort((a, b) => (b.profileUpdatedAt || 0) - (a.profileUpdatedAt || 0));
+      const newCount = visible.filter(u => (u.profileUpdatedAt || 0) > seenAt).length;
+
+      const badge = document.getElementById('attProfilesBadge');
+      if (badge) { badge.textContent = newCount; badge.classList.toggle('hidden', newCount === 0); }
+      const dot = document.getElementById('navAttendanceDot');
+      if (dot) dot.classList.toggle('hidden', newCount === 0);
+
+      const grid = document.getElementById('staffProfilesGrid');
+      if (!grid) return;
+      if (visible.length === 0) {
+        grid.innerHTML = `<p class="text-xs text-slate-400 font-medium col-span-full py-6 text-center">No staff logins yet. Create logins in the Staff Logins section; their profiles will appear here.</p>`;
+        return;
+      }
+      grid.innerHTML = visible.map(u => {
+        const photo = safePhotoSrc(u.photo);
+        const display = u.fullName || u.empName || '';
+        const initials = escapeHtml((display || '?').trim().charAt(0).toUpperCase());
+        const isNew = (u.profileUpdatedAt || 0) > seenAt;
+        const filled = (u.profileUpdatedAt || 0) > 0;
+        const tel = (p) => p ? `<a href="tel:${escapeHtml(p)}" class="text-blue-600 font-semibold underline">${escapeHtml(p)}</a>` : '<span class="text-slate-400">Not added</span>';
+        return `
+          <div class="border border-slate-200 rounded-2xl p-4 bg-white ${isNew ? 'ring-2 ring-rose-300' : ''}">
+            <div class="flex items-center gap-3">
+              <div class="w-16 h-16 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center text-2xl font-black text-slate-500 shrink-0">${photo ? `<img src="${photo}" alt="" class="w-full h-full object-cover">` : initials}</div>
+              <div class="min-w-0">
+                <p class="font-black text-slate-900 truncate">${escapeHtml(display)} ${isNew ? '<span class="ml-1 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black align-middle">NEW</span>' : ''}</p>
+                <p class="text-[11px] text-slate-500 font-mono">ID #${escapeHtml(u.empId)} · Login: ${escapeHtml(u.loginId)}</p>
+              </div>
+            </div>
+            <div class="mt-3 space-y-1.5 text-xs">
+              <p><span class="text-slate-500 font-bold">Phone:</span> ${tel(u.phone)}</p>
+              <p><span class="text-slate-500 font-bold">Address:</span> ${u.address ? escapeHtml(u.address) : '<span class="text-slate-400">Not added</span>'}</p>
+              <p><span class="text-slate-500 font-bold">Emergency:</span> ${u.emergencyName ? escapeHtml(u.emergencyName) + ' — ' : ''}${tel(u.emergencyPhone)}</p>
+              <p class="text-[11px] text-slate-400 pt-1">${filled ? 'Updated ' + formatDateTime(u.profileUpdatedAt) : 'Employee has not filled the profile yet'}</p>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // ==========================================
+    // 11. EMPLOYEE PORTAL (phone view: own data only)
+    // ==========================================
+    let staffEmp = null;
+    let staffPortalStarted = false;
+    let staffTab = 'today';
+    let staffWeekStart = null;
+    let staffFormDirty = false;
+    let staffPhotoDraft = null;
+
+    function staffNotice(msg) {
+      const el = document.getElementById('staffNotice');
+      if (!el) return;
+      el.textContent = msg;
+      el.classList.toggle('hidden', !msg);
+    }
+    function staffListenerError(err) {
+      console.warn('Staff data error:', err && err.code);
+      staffNotice('Some of your data could not be loaded. Please check your internet connection, or ask the owner.');
+    }
+
+    function applyStaffTheme() {
+      const dark = localStorage.getItem('vsg_staff_theme') === 'dark';
+      document.documentElement.classList.toggle('dark', dark);
+    }
+    function toggleStaffTheme() {
+      const dark = !document.documentElement.classList.contains('dark');
+      localStorage.setItem('vsg_staff_theme', dark ? 'dark' : 'light');
+      document.documentElement.classList.toggle('dark', dark);
+    }
+
+    function initStaffPortal() {
+      if (staffPortalStarted) return;
+      staffPortalStarted = true;
+      const empId = Number(staffProfile.empId);
+      staffEmp = { id: empId, name: staffProfile.empName || '', dailyWage: 0 };
+      // The shared calculation helpers read these globals, so they hold ONLY this employee's data here
+      employeesList = [staffEmp];
+      attendanceEvents = [];
+      labourPayments = [];
+      staffWeekStart = getWeekStartISO(getTodayISO());
+      applyStaffTheme();
+
+      db.collection('employee_users').doc(staffProfile.uid).onSnapshot((d) => {
+        if (!d.exists || d.data().disabled === true) { handleLogout(); return; }
+        staffProfile = Object.assign({ uid: staffProfile.uid }, d.data());
+        if (!staffFormDirty) fillStaffProfileForm();
+        renderStaffProfileHeader();
+      }, staffListenerError);
+
+      db.collection('employee_wages').doc(String(empId)).onSnapshot((d) => {
+        staffEmp.dailyWage = d.exists ? (d.data().dailyWage || 0) : 0;
+        renderStaffPortal();
+      }, staffListenerError);
+
+      db.collection('attendance_events').where('id', '==', empId).onSnapshot((snapshot) => {
+        const ev = [];
+        snapshot.forEach(d => ev.push(d.data()));
+        attendanceEvents = ev;
+        renderStaffPortal();
+      }, staffListenerError);
+
+      db.collection('labour_payments').where('empId', '==', empId).onSnapshot((snapshot) => {
+        const pays = [];
+        snapshot.forEach(d => pays.push(d.data()));
+        labourPayments = pays;
+        renderStaffPortal();
+      }, staffListenerError);
+
+      db.collection('settings').doc('attendanceConfig').onSnapshot((d) => {
+        if (d.exists && typeof d.data().otMultiplier === 'number') { otMultiplier = d.data().otMultiplier; renderStaffPortal(); }
+      }, () => {});
+
+      setInterval(renderStaffToday, 60000);
+      fillStaffProfileForm();
+      renderStaffProfileHeader();
+      renderStaffPortal();
+    }
+
+    function switchStaffTab(tab) {
+      staffTab = tab;
+      const names = { today: 'Today', attendance: 'Attendance', salary: 'Salary', profile: 'Profile' };
+      Object.keys(names).forEach(k => {
+        const sec = document.getElementById('staffTab' + names[k]);
+        const nav = document.getElementById('staffNav' + names[k]);
+        if (sec) sec.classList.toggle('hidden', k !== tab);
+        if (nav) nav.className = 'py-2.5 flex flex-col items-center gap-0.5 ' + (k === tab ? 'text-blue-700' : 'text-slate-500');
+      });
+      window.scrollTo({ top: 0 });
+      renderStaffPortal();
+    }
+
+    function renderStaffPortal() {
+      if (!staffEmp) return;
+      renderStaffToday();
+      renderStaffAttendance();
+      renderStaffSalary();
+    }
+
+    function renderStaffProfileHeader() {
+      const name = (staffProfile.fullName || staffProfile.empName || '').trim();
+      const photo = safePhotoSrc(staffProfile.photo);
+      const initial = escapeHtml((name || '?').charAt(0).toUpperCase());
+      const avatarHtml = photo ? `<img src="${photo}" alt="" class="w-full h-full object-cover">` : initial;
+      document.getElementById('staffHeaderName').textContent = name || 'Employee';
+      document.getElementById('staffHeaderAvatar').innerHTML = avatarHtml;
+      const big = document.getElementById('staffProfilePhoto');
+      if (big && !staffPhotoDraft) big.innerHTML = avatarHtml;
+      document.getElementById('staffProfileIds').textContent = `Roll No: ${staffProfile.loginId} (this is your Login ID and cannot be changed)`;
+      const nm = document.getElementById('staffTodayName');
+      if (nm) nm.textContent = (name || staffProfile.empName || '').split(' ')[0];
+    }
+
+    function liveWorkSecs(rec) {
+      const inSec = parseTimeToSeconds(rec.checkIn);
+      if (inSec == null) return 0;
+      const now = new Date();
+      const nowSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+      const endSec = rec.checkOut ? parseTimeToSeconds(rec.checkOut) : nowSec;
+      const lOut = parseTimeToSeconds(rec.lunchOut), lIn = parseTimeToSeconds(rec.lunchIn);
+      let lunch = 0;
+      if (lOut != null && lIn != null) lunch = Math.max(0, lIn - lOut);
+      else if (lOut != null && !rec.checkOut) lunch = Math.max(0, nowSec - lOut);
+      return Math.max(0, (endSec || 0) - inSec - lunch);
+    }
+
+    function staffRecordsMap() {
+      const map = {};
+      getGroupedDailyAttendance().forEach(r => { map[r.date] = r; });
+      return map;
+    }
+
+    function staffWeekTotals(weekStartISO) {
+      const map = staffRecordsMap();
+      let amount = 0, secs = 0, days = 0;
+      for (let i = 0; i < 7; i++) {
+        const rec = map[addDaysISO(weekStartISO, i)];
+        if (rec && rec.checkIn) { const st = computeDayStats(rec, staffEmp); amount += st.amount; secs += st.workSecs; days++; }
+      }
+      const weekEnd = addDaysISO(weekStartISO, 6);
+      const paid = labourPayments.filter(p => p.date >= weekStartISO && p.date <= weekEnd).reduce((s, p) => s + (p.amount || 0), 0);
+      return { amount, secs, days, paid, due: Math.max(0, amount - paid) };
+    }
+
+    const money = (n) => '₹' + (Math.round((n || 0) * 100) / 100).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+    function renderStaffToday() {
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      const today = getTodayISO();
+      const rec = staffRecordsMap()[today];
+      const now = new Date();
+      set('staffTodayDate', now.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }));
+
+      set('staffPunchIn', (rec && rec.checkIn) || '-');
+      set('staffPunchLunchOut', (rec && rec.lunchOut) || '-');
+      set('staffPunchLunchIn', (rec && rec.lunchIn) || '-');
+      set('staffPunchOut', (rec && rec.checkOut) || '-');
+
+      const badge = document.getElementById('staffTodayStatus');
+      let label = 'Not in yet', cls = 'bg-rose-100 text-rose-800';
+      if (rec && rec.checkIn) {
+        if (rec.checkOut) { label = 'Done for the day'; cls = 'bg-blue-100 text-blue-800'; }
+        else if (rec.lunchOut && !rec.lunchIn) { label = 'On lunch'; cls = 'bg-amber-100 text-amber-800'; }
+        else { label = 'Working'; cls = 'bg-emerald-100 text-emerald-800'; }
+        if (isSundayISO(today)) label += ' · OT day';
+      } else if (isSundayISO(today)) { label = 'Sunday (OT if you work)'; cls = 'bg-amber-100 text-amber-800'; }
+      badge.textContent = label;
+      badge.className = 'mt-3 inline-flex items-center px-3 py-1.5 rounded-full text-xs font-black ' + cls;
+
+      if (rec && rec.checkIn) {
+        const secs = liveWorkSecs(rec);
+        const hourly = (staffEmp.dailyWage || 0) / 8;
+        const rate = isSundayISO(today) ? hourly * otMultiplier : hourly;
+        set('staffTodayHours', (rec.checkOut ? '' : '~') + (formatSecondsToDisplay(secs) === '-' ? '0m' : formatSecondsToDisplay(secs)));
+        set('staffTodayEarned', (rec.checkOut ? '' : '~') + money((secs / 3600) * rate));
+      } else { set('staffTodayHours', '-'); set('staffTodayEarned', '₹0'); }
+
+      const wk = staffWeekTotals(getWeekStartISO(today));
+      set('staffTodayWeek', money(wk.amount));
+      set('staffTodayWeekDays', `${wk.days} day${wk.days === 1 ? '' : 's'} worked`);
+    }
+
+    function shiftStaffWeek(delta) { staffWeekStart = addDaysISO(staffWeekStart, delta * 7); renderStaffAttendance(); }
+    function goToStaffThisWeek() { staffWeekStart = getWeekStartISO(getTodayISO()); renderStaffAttendance(); }
+
+    function renderStaffAttendance() {
+      const list = document.getElementById('staffWeekList');
+      if (!list) return;
+      const weekEnd = addDaysISO(staffWeekStart, 6);
+      document.getElementById('staffWeekLabel').textContent = `${formatDisplayDate(staffWeekStart)} → ${formatDisplayDate(weekEnd)}`;
+      const map = staffRecordsMap();
+      const today = getTodayISO();
+      const names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday (OT)'];
+      let html = '';
+      for (let i = 0; i < 7; i++) {
+        const iso = addDaysISO(staffWeekStart, i);
+        const rec = map[iso];
+        const isSun = i === 6;
+        const head = `<div class="flex items-center justify-between"><p class="text-sm font-black ${isSun ? 'text-amber-700' : 'text-slate-900'}">${names[i]}</p><p class="text-[11px] font-mono text-slate-500">${formatDisplayDate(iso)}</p></div>`;
+        if (rec && rec.checkIn) {
+          const st = computeDayStats(rec, staffEmp);
+          const hoursText = st.pending ? 'Working…' : (st.missingOut ? 'No check-out' : (formatSecondsToDisplay(st.workSecs) === '-' ? '0m' : formatSecondsToDisplay(st.workSecs)));
+          html += `<div class="bg-white rounded-2xl border ${isSun ? 'border-amber-200' : 'border-slate-200'} p-3 space-y-2">${head}
+            <div class="grid grid-cols-4 gap-1 text-center">
+              <div><p class="text-[10px] text-slate-500 font-bold">IN</p><p class="text-[11px] font-mono font-bold text-emerald-700">${escapeHtml(rec.checkIn || '-')}</p></div>
+              <div><p class="text-[10px] text-slate-500 font-bold">LUNCH OUT</p><p class="text-[11px] font-mono font-bold text-amber-700">${escapeHtml(rec.lunchOut || '-')}</p></div>
+              <div><p class="text-[10px] text-slate-500 font-bold">LUNCH IN</p><p class="text-[11px] font-mono font-bold text-blue-700">${escapeHtml(rec.lunchIn || '-')}</p></div>
+              <div><p class="text-[10px] text-slate-500 font-bold">OUT</p><p class="text-[11px] font-mono font-bold text-rose-700">${escapeHtml(rec.checkOut || '-')}</p></div>
+            </div>
+            <div class="flex items-center justify-between border-t pt-2">
+              <p class="text-xs text-slate-600 font-semibold">${hoursText}${st.assumed ? ' <span class="text-amber-600" title="No check-out recorded: 8 hours counted">*</span>' : ''}</p>
+              <p class="text-sm font-black font-mono ${isSun ? 'text-amber-700' : 'text-emerald-700'}">${money(st.amount)}</p>
+            </div></div>`;
+        } else {
+          const label = iso > today ? '—' : (isSun ? 'Not worked' : 'No punch');
+          html += `<div class="bg-white rounded-2xl border border-slate-200 p-3 opacity-70">${head}<p class="text-xs text-slate-400 mt-1">${label}</p></div>`;
+        }
+      }
+      list.innerHTML = html;
+      const wk = staffWeekTotals(staffWeekStart);
+      document.getElementById('staffWeekTotal').textContent = money(wk.amount);
+      document.getElementById('staffWeekHours').textContent = (formatSecondsToDisplay(wk.secs) === '-' ? '0h 0m' : formatSecondsToDisplay(wk.secs)) + ` · ${wk.days} day${wk.days === 1 ? '' : 's'}`;
+    }
+
+    function renderStaffSalary() {
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      const s = getEmployeeAllTimeStats(staffEmp.id);
+      const paid = labourPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      const bal = s.earned - paid;
+      set('staffBalance', money(Math.abs(bal)));
+      set('staffBalanceLabel', bal < -0.5 ? 'Advance (paid more than earned)' : 'Balance to receive');
+      set('staffTotalEarned', money(s.earned));
+      set('staffTotalPaid', money(paid));
+
+      const wk = staffWeekTotals(getWeekStartISO(getTodayISO()));
+      set('staffSalWeekEarned', money(wk.amount));
+      set('staffSalWeekPaid', money(wk.paid));
+      set('staffSalWeekDue', money(wk.due));
+
+      const hourly = (staffEmp.dailyWage || 0) / 8;
+      set('staffRateDaily', staffEmp.dailyWage ? money(staffEmp.dailyWage) : 'Not set yet');
+      set('staffRateHourly', money(hourly));
+      set('staffRateOT', money(hourly * otMultiplier));
+
+      const listEl = document.getElementById('staffPaymentsList');
+      const pays = [...labourPayments].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.id - a.id)).slice(0, 20);
+      listEl.innerHTML = pays.length === 0
+        ? '<p class="text-xs text-slate-400 py-3">No payments recorded yet.</p>'
+        : pays.map(p => `<div class="py-2.5 flex items-center justify-between gap-3"><div class="min-w-0"><p class="text-sm font-bold text-slate-800 font-mono">${formatDisplayDate(p.date)}</p><p class="text-[11px] text-slate-500 truncate">${escapeHtml(p.remarks || '')}</p></div><p class="text-sm font-black font-mono text-blue-700">${money(p.amount)}</p></div>`).join('');
+    }
+
+    // ---------- profile ----------
+    function fillStaffProfileForm() {
+      const v = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+      v('staffFullName', staffProfile.fullName || staffProfile.empName);
+      v('staffPhone', staffProfile.phone);
+      v('staffAddress', staffProfile.address);
+      v('staffEmergName', staffProfile.emergencyName);
+      v('staffEmergPhone', staffProfile.emergencyPhone);
+    }
+
+    function resizeImageToDataURL(file, size, quality) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = reject;
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onerror = reject;
+          img.onload = () => {
+            const side = Math.min(img.width, img.height);
+            const sx = (img.width - side) / 2, sy = (img.height - side) / 2;
+            const canvas = document.createElement('canvas');
+            canvas.width = size; canvas.height = size;
+            canvas.getContext('2d').drawImage(img, sx, sy, side, side, 0, 0, size, size);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleStaffPhotoPick(ev) {
+      const file = ev.target.files && ev.target.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) { showStaffProfileMsg('Please choose a photo (image file).', false); return; }
+      try {
+        staffPhotoDraft = await resizeImageToDataURL(file, 256, 0.75);
+        document.getElementById('staffProfilePhoto').innerHTML = `<img src="${staffPhotoDraft}" alt="" class="w-full h-full object-cover">`;
+        staffFormDirty = true;
+        showStaffProfileMsg('Photo selected. Tap "Save Profile" to keep it.', true);
+      } catch (e) { showStaffProfileMsg('Could not read that photo. Try another one.', false); }
+    }
+
+    function showStaffProfileMsg(text, ok) {
+      const el = document.getElementById('staffProfileMsg');
+      el.textContent = text;
+      el.className = 'text-xs font-semibold ' + (ok ? 'text-emerald-700' : 'text-rose-600');
+    }
+
+    async function saveStaffProfile(e) {
+      e.preventDefault();
+      const fullName = document.getElementById('staffFullName').value.trim();
+      const phone = document.getElementById('staffPhone').value.trim();
+      const address = document.getElementById('staffAddress').value.trim();
+      const emergencyName = document.getElementById('staffEmergName').value.trim();
+      const emergencyPhone = document.getElementById('staffEmergPhone').value.trim();
+      const phoneOk = (p) => !p || /^[0-9+\-\s]{7,16}$/.test(p);
+
+      if (!fullName) { showStaffProfileMsg('Please enter your name.', false); return; }
+      if (!phoneOk(phone) || !phoneOk(emergencyPhone)) { showStaffProfileMsg('Please enter a valid phone number (digits only).', false); return; }
+
+      const btn = document.getElementById('staffProfileSaveBtn');
+      btn.disabled = true; btn.textContent = 'Saving...';
+      const now = Date.now();
+      const update = { fullName, phone, address, emergencyName, emergencyPhone, profileUpdatedAt: now };
+      if (staffPhotoDraft) update.photo = staffPhotoDraft;
+      try {
+        await db.collection('employee_users').doc(staffProfile.uid).update(update);
+        try {
+          await db.collection('audit_log').doc(String(now + Math.floor(Math.random() * 1000))).set({
+            id: now, timestamp: new Date(now).toISOString(), action: 'PROFILE_UPDATE',
+            details: `${staffProfile.empName} (#${staffProfile.empId}) updated their profile`
+          });
+        } catch (auditErr) { console.warn('Audit entry skipped:', auditErr.code); }
+        staffPhotoDraft = null;
+        staffFormDirty = false;
+        showStaffProfileMsg('Profile saved. The owner can now see it.', true);
+      } catch (err) {
+        showStaffProfileMsg('Could not save (' + (err.code || 'error') + '). Check your internet and try again.', false);
+      } finally {
+        btn.disabled = false; btn.textContent = 'Save Profile';
+      }
+    }
+
+    setupAuthListener();
   </script>
 </body>
 </html>
