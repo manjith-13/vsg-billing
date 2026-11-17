@@ -4852,6 +4852,11 @@
 
       // DUPLICATE GUARD
       const existingById = employeesList.find(em => em.id === id);
+      // New employees must complete hardware fingerprint enrolment via Scan Finger first.
+      if (!existingById) {
+        alert("For a new employee, click Scan Finger and complete both scans. The employee will be saved automatically only after the machine confirms SUCCESS.");
+        return;
+      }
       if (existingById && existingById.name.trim().toUpperCase() !== name) {
         if (!confirm(`Employee ID #${id} already belongs to "${existingById.name}". Replace it with "${name}"?`)) return;
       }
@@ -4902,9 +4907,22 @@
     }
 
     async function triggerHardwareEnroll() {
-      const id = parseInt(document.getElementById('empIdInput').value);
+      const id = parseInt(document.getElementById('empIdInput').value, 10);
       const name = document.getElementById('empNameInput').value.trim().toUpperCase();
-      if (!id || !name) { alert("Please enter both ID and Name to enroll fingerprint."); return; }
+      const role = document.getElementById('empRoleInput').value;
+      const status = document.getElementById('empStatusInput').value;
+      const dailyWage = parseFloat(document.getElementById('empWageInput').value) || 0;
+      if (!id || !name) { alert("Please enter both Employee ID and Name before scanning."); return; }
+
+      const existingById = employeesList.find(em => Number(em.id) === id);
+      if (existingById && existingById.name.trim().toUpperCase() !== name) {
+        if (!confirm(`Employee ID #${id} already belongs to "${existingById.name}". Replace it with "${name}" after fingerprint enrolment?`)) return;
+      }
+      if (!existingById) {
+        const nameDupe = employeesList.find(em => em.name.trim().toUpperCase() === name);
+        if (nameDupe && !confirm(`"${name}" already exists as ID #${nameDupe.id}. Add this as a separate employee anyway?`)) return;
+      }
+      if (!isCloudActive) { alert("Cloud offline — cannot reach the fingerprint machine."); return; }
 
       if (attendanceEnrollUnsubscribe) { attendanceEnrollUnsubscribe(); attendanceEnrollUnsubscribe = null; }
       if (attendanceEnrollTimeoutHandle) { clearTimeout(attendanceEnrollTimeoutHandle); attendanceEnrollTimeoutHandle = null; }
@@ -4912,41 +4930,79 @@
       const badge = document.getElementById('enrollmentStatusBadge');
       badge.classList.remove('hidden');
       badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 animate-pulse";
-      badge.textContent = `Place finger on the machine for ID #${id} (${name})...`;
+      badge.textContent = `Waiting for fingerprint machine for ID #${id} (${name})...`;
 
-      if (!isCloudActive) {
+      // Unique token prevents an old SUCCESS status from completing this enrolment.
+      const requestId = `${Date.now()}-${id}`;
+      let completed = false;
+      const finishListener = () => {
+        if (attendanceEnrollUnsubscribe) { attendanceEnrollUnsubscribe(); attendanceEnrollUnsubscribe = null; }
+        if (attendanceEnrollTimeoutHandle) { clearTimeout(attendanceEnrollTimeoutHandle); attendanceEnrollTimeoutHandle = null; }
+      };
+
+      // Listen first, then publish the request so a fast ESP32 response cannot be missed.
+      attendanceEnrollUnsubscribe = db.collection("enroll_status").doc("active").onSnapshot(async (doc) => {
+        if (!doc.exists) return;
+        const data = doc.data();
+        if (data.requestId !== requestId || Number(data.id) !== id) return;
+        if (data.status === "PROCESSING") {
+          badge.textContent = `Machine ready — scan the same finger twice for ${name}...`;
+          return;
+        }
+        if (data.status === "SUCCESS" && !completed) {
+          completed = true;
+          try {
+            const empData = { id, name, role, fingerprint: id, status, dailyWage };
+            await saveEmployeeToCloud(empData);
+            const idx = employeesList.findIndex(em => Number(em.id) === id);
+            if (idx !== -1) employeesList[idx] = empData;
+            else employeesList.push(empData);
+            localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
+            logAudit('EMPLOYEE_SAVE', `Employee #${id} (${name}) — ${role} — Daily wage ₹${dailyWage.toFixed(2)} — fingerprint enrolled`);
+            refreshAttendanceUI();
+            badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800";
+            badge.textContent = `Fingerprint enrolled — ${name} added to employee directory.`;
+            document.getElementById('empIdInput').value = '';
+            document.getElementById('empNameInput').value = '';
+            document.getElementById('empWageInput').value = '';
+          } catch (err) {
+            console.error('Employee save after fingerprint enrolment failed:', err);
+            badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800";
+            badge.textContent = "Fingerprint enrolled, but employee cloud save failed. Please retry Save.";
+          }
+          finishListener();
+          setTimeout(() => badge.classList.add('hidden'), 8000);
+        } else if (data.status === "FAILED" && !completed) {
+          completed = true;
+          badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800";
+          badge.textContent = "Fingerprint enrolment failed. Employee was NOT added. Please try again.";
+          finishListener();
+          setTimeout(() => badge.classList.add('hidden'), 8000);
+        }
+      }, (err) => {
+        console.error('Enrollment status listener:', err);
         badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800";
-        badge.textContent = "Cloud offline — cannot reach the fingerprint machine.";
-        setTimeout(() => badge.classList.add('hidden'), 5000);
+        badge.textContent = "Could not listen for machine status. Check the cloud connection.";
+        finishListener();
+      });
+
+      try {
+        await db.collection("enroll_request").doc("active").set({ id, name, requestId, active: true, timestamp: Date.now() });
+      } catch (err) {
+        console.error('Could not send fingerprint request:', err);
+        badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800";
+        badge.textContent = "Could not send request to the fingerprint machine.";
+        finishListener();
         return;
       }
 
-      await db.collection("enroll_request").doc("active").set({ id, name, active: true, timestamp: Date.now() });
-
-      attendanceEnrollUnsubscribe = db.collection("enroll_status").doc("active").onSnapshot((doc) => {
-        if (doc.exists) {
-          const data = doc.data();
-          if (data.id === id) {
-            if (data.status === "SUCCESS") {
-              badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800";
-              badge.textContent = `Fingerprint for ID #${id} enrolled successfully!`;
-            } else {
-              badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800";
-              badge.textContent = `Enrollment failed or timed out.`;
-            }
-            setTimeout(() => badge.classList.add('hidden'), 5000);
-            if (attendanceEnrollUnsubscribe) { attendanceEnrollUnsubscribe(); attendanceEnrollUnsubscribe = null; }
-            if (attendanceEnrollTimeoutHandle) { clearTimeout(attendanceEnrollTimeoutHandle); attendanceEnrollTimeoutHandle = null; }
-          }
-        }
-      });
-
       attendanceEnrollTimeoutHandle = setTimeout(() => {
+        if (completed) return;
         badge.className = "px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800";
-        badge.textContent = "No response from the machine (timed out after 30s).";
-        setTimeout(() => badge.classList.add('hidden'), 5000);
-        if (attendanceEnrollUnsubscribe) { attendanceEnrollUnsubscribe(); attendanceEnrollUnsubscribe = null; }
-      }, 30000);
+        badge.textContent = "No final response from the machine (90-second timeout). Employee was not added.";
+        finishListener();
+        setTimeout(() => badge.classList.add('hidden'), 8000);
+      }, 90000);
     }
 
     function renderEmployeeDirectory() {
@@ -5215,6 +5271,12 @@
           for (const ev of attendanceEvents.filter(matches)) {
             if (ev._docId) await db.collection("attendance_events").doc(ev._docId).delete();
           }
+          // Tell the ESP32 to clear its persistent duplicate marker too.
+          // Otherwise deleting the cloud log alone leaves the device's old
+          // Preferences record and it incorrectly says ALREADY SCANNED.
+          await db.collection("attendance_reset").doc("active").set({
+            id: Number(empId), date: dateStr, active: true, timestamp: Date.now()
+          });
         }
         attendanceEvents = attendanceEvents.filter(e => !matches(e));
         localStorage.setItem('vsg_roster_events', JSON.stringify(attendanceEvents));
