@@ -4690,7 +4690,7 @@
       { id: 3, name: "KANNAN", role: "Admin", fingerprint: 3, status: "Active", dailyWage: 500 }
     ];
 
-    let employeesList = JSON.parse(localStorage.getItem('vsg_roster_employees')) || defaultEmployees;
+    let employeesList = JSON.parse(localStorage.getItem('vsg_roster_employees')) || [];
     let attendanceEvents = JSON.parse(localStorage.getItem('vsg_roster_events')) || [];
     let labourPayments = JSON.parse(localStorage.getItem('vsg_labour_payments')) || [];
     let otMultiplier = parseFloat(localStorage.getItem('vsg_ot_multiplier'));
@@ -4775,7 +4775,11 @@
               localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
               if (attendanceTabVisible()) refreshAttendanceUI();
             } else {
-              defaultEmployees.forEach(emp => { saveEmployeeToCloud(emp).catch(err => console.warn(err.code)); });
+              // No employees in the cloud (for example everyone was deleted): show an empty list.
+              // Default employees are never re-created.
+              employeesList = [];
+              localStorage.setItem('vsg_roster_employees', JSON.stringify(employeesList));
+              if (attendanceTabVisible()) refreshAttendanceUI();
             }
           });
 
